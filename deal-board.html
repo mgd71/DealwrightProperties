@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Board — Wholesaling Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#142118;
+    --surface:#1c2e22;
+    --surface-2:#24392b;
+    --surface-3:#2c4433;
+    --chalk:#ede7d9;
+    --chalk-dim:#a9b5a8;
+    --gold:#c9a227;
+    --gold-dim:#7d6a26;
+    --blue:#6da0c4;
+    --red:#be4b36;
+    --line:#3c5645;
+    --line-soft:#2a3f30;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  html,body{
+    background:var(--bg);
+    color:var(--chalk);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body{
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.04), transparent 60%);
+  }
+  h1,h2,h3,.display{
+    font-family:'Special Elite',cursive;
+    letter-spacing:0.5px;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 16px 80px;}
+
+  /* ---------- Header ---------- */
+  .header{
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:linear-gradient(160deg, var(--surface), var(--surface-2));
+    padding:20px 22px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    justify-content:space-between;
+    align-items:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .header::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:radial-gradient(circle, rgba(237,231,217,0.05) 1px, transparent 1px);
+    background-size:14px 14px;
+    pointer-events:none;
+  }
+  .brand{position:relative;z-index:1;}
+  .brand .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin:0 0 4px;
+  }
+  .brand h1{
+    margin:0;
+    font-size:30px;
+    color:var(--chalk);
+    text-shadow:0 0 12px rgba(237,231,217,0.15);
+  }
+  .brand .sub{
+    margin:6px 0 0;
+    color:var(--chalk-dim);
+    font-size:13px;
+  }
+
+  .stamp-badge{
+    position:relative;z-index:1;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center;
+    width:118px; height:118px;
+    border:3px double var(--gold);
+    border-radius:50%;
+    transform:rotate(-6deg);
+    background:rgba(201,162,39,0.06);
+    text-align:center;
+    flex-shrink:0;
+    transition:border-color .3s, background .3s;
+  }
+  .stamp-badge .lvl-icon{font-size:22px; line-height:1; margin-bottom:2px;}
+  .stamp-badge .lvl-num{font-family:'Special Elite',cursive;font-size:16px;color:var(--gold);line-height:1;}
+  .stamp-badge .lvl-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--chalk-dim);margin-top:4px;padding:0 8px;line-height:1.2;}
+
+  .header-stats{
+    position:relative;z-index:1;
+    display:flex; gap:22px; flex-wrap:wrap;
+  }
+  .hstat{min-width:90px;}
+  .hstat .n{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--chalk);}
+  .hstat .l{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--chalk-dim);}
+
+  .xp-track{
+    position:relative;z-index:1;
+    width:100%;
+    margin-top:14px;
+  }
+  .xp-bar-bg{
+    height:10px;border-radius:6px;background:var(--surface-3);
+    border:1px solid var(--line);
+    overflow:hidden;
+  }
+  .xp-bar-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--gold-dim), var(--gold));
+    transition:width .5s ease;
+  }
+  .xp-caption{font-size:11px;color:var(--chalk-dim);margin-top:5px;font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:10px;
+    align-items:center; justify-content:space-between;
+    margin-top:18px;
+  }
+  .chips{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--chalk-dim);
+    padding:7px 14px;
+    border-radius:999px;
+    font-size:12.5px;
+    cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif;
+    transition:all .15s;
+  }
+  .chip:hover{border-color:var(--gold-dim); color:var(--chalk);}
+  .chip.active{background:var(--gold); border-color:var(--gold); color:#1c1400; font-weight:600;}
+
+  .btn{
+    border:1px solid var(--gold);
+    background:var(--gold);
+    color:#1c1400;
+    padding:9px 16px;
+    border-radius:8px;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.secondary{
+    background:transparent; color:var(--chalk); border:1px solid var(--line);
+  }
+  .btn.small{padding:5px 10px; font-size:11.5px; border-radius:6px;}
+  .btn.danger{border-color:var(--red); background:transparent; color:var(--red);}
+
+  /* ---------- Board ---------- */
+  .board{
+    display:grid;
+    grid-template-columns:repeat(6, minmax(200px,1fr));
+    gap:12px;
+    margin-top:18px;
+    overflow-x:auto;
+  }
+  @media (max-width:1000px){
+    .board{grid-template-columns:repeat(6, 240px);}
+  }
+  .col{
+    background:rgba(255,255,255,0.02);
+    border:1px solid var(--line-soft);
+    border-radius:10px;
+    padding:10px;
+    min-height:180px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .col-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:2px 4px 8px;
+    border-bottom:1px dashed var(--line);
+    margin-bottom:2px;
+  }
+  .col-head .t{font-size:11.5px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim); font-family:'IBM Plex Mono',monospace;}
+  .col-head .c{font-family:'IBM Plex Mono',monospace; font-size:11.5px; background:var(--surface-3); padding:1px 7px; border-radius:20px; color:var(--chalk);}
+  .col{transition:background .15s, border-color .15s;}
+  .col.drag-over{
+    background:rgba(201,162,39,0.07);
+    border-color:var(--gold-dim);
+    border-style:dashed;
+  }
+  .card{cursor:grab;}
+  .card:active{cursor:grabbing;}
+  .card.dragging{opacity:0.4;}
+  .stage-select{
+    width:100%;
+    background:var(--surface-2); border:1px solid var(--line);
+    color:var(--chalk-dim); border-radius:6px; padding:5px 6px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:11px;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:11px 12px;
+    position:relative;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+  }
+  .card::before{
+    content:"";
+    position:absolute; top:-6px; left:14px;
+    width:10px; height:10px; border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #e8d27a, var(--gold-dim));
+    box-shadow:0 2px 3px rgba(0,0,0,0.4);
+  }
+  .card .addr{font-weight:600; font-size:13.5px; color:var(--chalk); margin:2px 0 1px;}
+  .card .city{font-size:11px; color:var(--chalk-dim); margin-bottom:8px;}
+  .card .market-tag{
+    display:inline-block; font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase;
+    color:var(--blue); border:1px solid var(--blue); border-radius:4px; padding:1px 6px; margin-bottom:8px;
+  }
+  .card .figs{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--chalk-dim); line-height:1.7;}
+  .card .figs b{color:var(--gold);}
+  .card .days{font-size:10px; color:var(--chalk-dim); margin-top:6px;}
+  .card-actions{display:flex; gap:6px; margin-top:9px;}
+
+  .stamp-closed{
+    position:absolute; top:8px; right:6px;
+    transform:rotate(10deg);
+    border:2px solid var(--red);
+    color:var(--red);
+    font-family:'Special Elite',cursive;
+    font-size:10px;
+    letter-spacing:1px;
+    padding:2px 6px;
+    border-radius:4px;
+    opacity:0.85;
+  }
+
+  .empty-col{color:var(--line); font-size:11px; text-align:center; padding:20px 4px; font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- Panels ---------- */
+  .panels{display:grid; grid-template-columns:1.1fr 1fr; gap:16px; margin-top:22px;}
+  @media (max-width:820px){.panels{grid-template-columns:1fr;}}
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px 20px;
+  }
+  .panel h2{margin:0 0 4px; font-size:17px; color:var(--chalk);}
+  .panel .desc{font-size:12px; color:var(--chalk-dim); margin:0 0 14px;}
+
+  .calc-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim); margin-bottom:5px;}
+  .field input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:6px; color:var(--chalk); padding:9px 10px; font-family:'IBM Plex Mono',monospace; font-size:13px;
+  }
+  .field input:focus{outline:none; border-color:var(--gold-dim);}
+  .mao-result{
+    margin-top:16px; padding:14px 16px; border-radius:8px;
+    background:rgba(201,162,39,0.08); border:1px dashed var(--gold-dim);
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  }
+  .mao-result .label{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim);}
+  .mao-result .val{font-family:'IBM Plex Mono',monospace; font-size:24px; color:var(--gold); font-weight:600;}
+
+  /* Badges */
+  .badge-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:10px;}
+  .badge{
+    text-align:center; padding:10px 4px; border-radius:8px;
+    border:1px solid var(--line-soft); background:var(--surface-2);
+    font-size:10.5px; color:var(--line);
+  }
+  .badge.earned{
+    border-color:var(--gold-dim); color:var(--chalk);
+    background:radial-gradient(circle at 50% 20%, rgba(201,162,39,0.18), var(--surface-2));
+  }
+  .badge .icon{font-size:22px; display:block; margin-bottom:5px;}
+  .badge .name{font-weight:600; line-height:1.2;}
+
+  .xp-guide{margin-top:16px; border-top:1px dashed var(--line-soft); padding-top:12px;}
+  .xp-guide-label{font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim); margin-bottom:8px;}
+  .xp-guide-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; color:var(--chalk); padding:4px 0;
+  }
+  .xp-guide-amt{font-family:'IBM Plex Mono',monospace; color:var(--gold); font-size:11.5px;}
+
+  .rank-legend{margin-top:16px; border-top:1px dashed var(--line-soft); padding-top:12px;}
+  .rank-legend-label{font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim); margin-bottom:8px;}
+  .rank-legend-row{
+    display:flex; align-items:center; gap:9px;
+    font-size:11.5px; color:var(--chalk-dim);
+    padding:5px 6px; border-radius:6px;
+  }
+  .rank-legend-row.current{background:rgba(255,255,255,0.04); color:var(--chalk); font-weight:600;}
+  .rank-legend-icon{font-size:14px; width:20px; text-align:center; flex-shrink:0;}
+  .rank-legend-title{flex:1;}
+  .rank-legend-xp{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--chalk-dim);}
+  .rank-legend-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+
+  /* streak / log */
+  .streak-row{display:flex; align-items:center; gap:12px; margin-top:10px;}
+  .flame{font-size:26px;}
+  .activity-log{margin-top:14px; max-height:170px; overflow-y:auto; padding-right:4px;}
+  .activity-item{
+    font-size:12px; color:var(--chalk-dim); padding:7px 0; border-bottom:1px dashed var(--line-soft);
+    display:flex; justify-content:space-between; gap:8px;
+  }
+  .activity-item .t{color:var(--chalk); font-family:'IBM Plex Mono',monospace; font-size:10px; white-space:nowrap;}
+
+  /* Modal */
+  .modal-bg{
+    position:fixed; inset:0; background:rgba(10,15,11,0.72);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:16px;
+  }
+  .modal-bg.open{display:flex;}
+  .modal{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:22px; width:100%; max-width:460px; max-height:90vh; overflow-y:auto;
+  }
+  .modal h2{margin:0 0 14px;}
+  .modal .field{margin-bottom:12px;}
+  .modal select{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--chalk); padding:9px 10px; font-family:'IBM Plex Sans',sans-serif; font-size:13px;
+  }
+  .modal-actions{display:flex; gap:10px; margin-top:16px;}
+
+  .modal.wide{max-width:640px;}
+  .comp-row{
+    display:grid; grid-template-columns:1.4fr 1fr 0.8fr 1fr; gap:8px;
+    align-items:end; margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line-soft);
+  }
+  .recency-tag{
+    display:inline-block; font-size:9.5px; margin-top:5px; padding:1px 6px; border-radius:4px;
+    letter-spacing:0.3px;
+  }
+  .recency-tag.fresh{color:var(--blue); border:1px solid var(--blue);}
+  .recency-tag.ok{color:var(--gold); border:1px solid var(--gold-dim);}
+  .recency-tag.stale{color:var(--red); border:1px solid var(--red);}
+  .recency-tag.blocked{color:var(--red); border:1px solid var(--red); background:rgba(190,75,54,0.12); font-weight:600;}
+  .comp-warning{
+    grid-column:1 / -1;
+    font-size:10.5px; color:var(--red); margin-top:-4px; margin-bottom:2px;
+  }
+  .sale-type-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .sale-type-pill{
+    display:flex; align-items:center; gap:6px;
+    border:1px solid var(--line); border-radius:8px; padding:8px 14px;
+    font-size:13px; color:var(--chalk-dim); cursor:pointer; background:var(--surface-2);
+  }
+  .sale-type-pill input{accent-color:var(--gold);}
+  .sale-type-pill:has(input:checked){border-color:var(--gold); color:var(--chalk); background:rgba(201,162,39,0.08);}
+  .type-tag{
+    display:inline-block; font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase;
+    color:var(--gold); border:1px solid var(--gold-dim); border-radius:4px; padding:1px 6px; margin:0 0 8px 6px;
+  }
+
+  /* ---------- Deal Score ---------- */
+  .score-preview-val{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:700;}
+  .score-tier-label{font-size:10.5px; margin-top:2px; letter-spacing:0.3px;}
+  .score-preview-val.good, .score-tier-label.good{color:var(--blue);}
+  .score-preview-val.ok, .score-tier-label.ok{color:var(--gold);}
+  .score-preview-val.warn, .score-tier-label.warn{color:var(--chalk-dim);}
+  .score-preview-val.bad, .score-tier-label.bad{color:var(--red);}
+
+  .deal-score-badge{
+    margin-top:8px; padding:6px 9px; border-radius:7px;
+    font-family:'IBM Plex Mono',monospace; font-size:11px;
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .deal-score-badge .num{font-weight:700; font-size:14px;}
+  .deal-score-badge.good{background:rgba(109,160,196,0.10); border:1px solid var(--blue); color:var(--blue);}
+  .deal-score-badge.ok{background:rgba(201,162,39,0.10); border:1px solid var(--gold); color:var(--gold);}
+  .deal-score-badge.warn{background:rgba(255,255,255,0.03); border:1px dashed var(--line); color:var(--chalk-dim);}
+  .deal-score-badge.bad{background:rgba(190,75,54,0.10); border:1px solid var(--red); color:var(--red);}
+
+  .matched-buyers{margin-top:8px;}
+  .matched-buyers .mb-label{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim); margin-bottom:4px;}
+  .mb-chip{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:10.5px; border-radius:999px; padding:2px 8px; margin:0 5px 5px 0;
+  }
+  .mb-chip.city{color:var(--gold); border:1px solid var(--gold);}
+  .mb-chip.state{color:var(--chalk-dim); border:1px solid var(--line);}
+  .mb-chip .tick{font-size:9px;}
+  .mb-none{font-size:10.5px; color:var(--line); font-family:'IBM Plex Mono',monospace;}
+
+  .card-notes{
+    width:100%; margin-top:9px; min-height:44px; max-height:160px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:7px;
+    color:var(--chalk); font-family:'IBM Plex Sans',sans-serif; font-size:11.5px;
+    padding:7px 9px; resize:vertical; line-height:1.4;
+  }
+  .card-notes::placeholder{color:var(--line);}
+  .card-notes:focus{outline:none; border-color:var(--gold-dim);}
+  @media (max-width:600px){
+    .comp-row{grid-template-columns:1fr;}
+  }
+
+  /* ---------- Buyers ---------- */
+  .buyers-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px;}
+  .buyer-card{
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:9px; padding:13px 14px;
+  }
+  .buyer-card .name{font-weight:600; color:var(--chalk); font-size:14px; margin-bottom:2px;}
+  .buyer-card .contact{font-size:11px; color:var(--chalk-dim); font-family:'IBM Plex Mono',monospace; margin-bottom:8px;}
+  .buyer-card .notes{font-size:11.5px; color:var(--chalk-dim); margin-bottom:9px; line-height:1.4; max-height:110px; overflow-y:auto; white-space:pre-line;}
+  .market-pills{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px;}
+  .market-pill{
+    font-size:10px; color:var(--blue); border:1px solid var(--blue);
+    border-radius:999px; padding:2px 9px;
+  }
+  .tag-input-row{display:flex; gap:8px; margin-bottom:8px;}
+  .tag-input-row input{flex:1;}
+  .tag-pill-editable{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; color:var(--blue); border:1px solid var(--blue);
+    border-radius:999px; padding:3px 6px 3px 10px; margin:0 6px 6px 0;
+  }
+  .tag-pill-editable button{
+    background:none; border:none; color:var(--blue); cursor:pointer; font-size:13px; line-height:1;
+    padding:0 2px;
+  }
+  .empty-buyers{color:var(--line); font-size:11px; font-family:'IBM Plex Mono',monospace; padding:10px 0;}
+  .buyer-card .power-line{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--gold); font-weight:600;
+    margin:2px 0 9px;
+  }
+
+  /* ---------- Buying Power strip ---------- */
+  .power-strip{
+    margin-top:14px;
+    border:1px solid var(--gold-dim);
+    border-radius:10px;
+    padding:16px 20px;
+    background:linear-gradient(120deg, rgba(201,162,39,0.10), rgba(201,162,39,0.02) 60%);
+    display:flex; flex-wrap:wrap; gap:22px; align-items:center; justify-content:space-between;
+    position:relative;
+    overflow:hidden;
+  }
+  .power-strip::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:repeating-linear-gradient(115deg, rgba(201,162,39,0.05) 0px, rgba(201,162,39,0.05) 1px, transparent 1px, transparent 18px);
+    pointer-events:none;
+  }
+  .power-main{position:relative; z-index:1;}
+  .power-label{font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim); margin-bottom:4px;}
+  .power-value{font-family:'IBM Plex Mono',monospace; font-size:32px; font-weight:700; color:var(--gold); line-height:1; text-shadow:0 0 18px rgba(201,162,39,0.25);}
+  .power-sub{font-size:11.5px; color:var(--chalk-dim); margin-top:5px;}
+
+  .power-breakdown{position:relative; z-index:1; display:flex; flex-direction:column; gap:6px; min-width:180px; max-height:220px; overflow-y:auto;}
+  .power-market{font-size:12px; color:var(--chalk-dim); display:flex; align-items:center; gap:7px;}
+  .power-market b{color:var(--chalk); font-family:'IBM Plex Mono',monospace; margin-left:auto;}
+  .power-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+
+  .power-bar-wrap{position:relative; z-index:1; width:100%; margin-top:2px;}
+  .power-bar{height:8px; border-radius:6px; overflow:hidden; display:flex; background:var(--surface-3); border:1px solid var(--line);}
+  .power-bar .seg{height:100%;}
+  .comp-row .field{margin-bottom:0;}
+  .comp-row .idx{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--gold); margin-bottom:6px;}
+  .subject-row{
+    background:rgba(109,160,196,0.07); border:1px dashed var(--blue);
+    border-radius:8px; padding:12px; margin-bottom:14px;
+  }
+  .arv-preview{
+    margin-top:10px; padding:14px 16px; border-radius:8px;
+    background:rgba(109,160,196,0.08); border:1px dashed var(--blue);
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  }
+  .arv-preview .label{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim);}
+  .arv-preview .val{font-family:'IBM Plex Mono',monospace; font-size:22px; color:var(--blue); font-weight:600;}
+  .arv-preview .hint{font-size:10.5px; color:var(--chalk-dim); width:100%;}
+
+  .repair-cat-intro{font-size:11px; color:var(--chalk-dim); margin:2px 0 10px;}
+  .repair-cat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px;}
+  .repair-cat{
+    border:1px solid var(--line); border-radius:8px; padding:10px 11px;
+    background:var(--surface-2); cursor:pointer; transition:all .15s;
+  }
+  .repair-cat:hover{border-color:var(--gold-dim);}
+  .repair-cat.selected{border-color:var(--gold); background:rgba(201,162,39,0.10);}
+  .repair-cat-name{font-size:12.5px; font-weight:600; color:var(--chalk);}
+  .repair-cat-rate{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--gold); margin:2px 0 6px;}
+  .repair-cat-desc{font-size:10.5px; color:var(--chalk-dim); line-height:1.4; margin-bottom:8px;}
+  .repair-cat-total{font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color:var(--chalk);}
+  .arv-source{
+    display:inline-block; font-size:9px; letter-spacing:0.5px; text-transform:uppercase;
+    padding:1px 6px; border-radius:4px; margin-left:6px; vertical-align:middle;
+  }
+  .arv-source.auto{color:var(--blue); border:1px solid var(--blue);}
+  .arv-source.manual{color:var(--chalk-dim); border:1px solid var(--line);}
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--gold); color:#1c1400; font-weight:600; font-size:13px;
+    padding:12px 20px; border-radius:8px; opacity:0; transition:all .3s; z-index:100; pointer-events:none;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .footer-note{text-align:center; color:var(--line); font-size:11px; margin-top:26px; font-family:'IBM Plex Mono',monospace;}
+  .footer-note a{color:var(--chalk-dim); cursor:pointer; text-decoration:underline;}
+
+  .loading{padding:60px 0; text-align:center; color:var(--chalk-dim); font-family:'IBM Plex Mono',monospace;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading">loading deal board…</div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal wide">
+    <div id="dealStep1">
+      <h2>+ New Deal — Step 1: Property</h2>
+      <p style="font-size:12px;color:var(--chalk-dim);margin:-8px 0 14px;">Paste the Zillow listing link and we'll pull the address out of it. Double-check it — Zillow URL formats vary and parsing isn't perfect.</p>
+      <div class="tag-input-row">
+        <input id="nd_zillow" placeholder="https://www.zillow.com/homedetails/...">
+        <button class="btn small secondary" id="nd_parse_btn" type="button">Parse Link</button>
+      </div>
+      <div id="nd_parse_status" style="font-size:11px;color:var(--chalk-dim);margin:-4px 0 12px;"></div>
+      <div class="field"><label>Address</label><input id="nd_address" placeholder="317 Allenwood Dr"></div>
+      <div class="calc-grid">
+        <div class="field"><label>City</label><input id="nd_city" placeholder="Princeton"></div>
+        <div class="field"><label>Market</label>
+          <select id="nd_market">
+            <option>Texas</option><option>Florida</option><option>Ohio</option><option>Pennsylvania</option><option>Arizona</option><option>North Carolina</option><option>Georgia</option><option>Tennessee</option><option>Missouri</option><option>Alabama</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>List / For Sale Price ($)</label><input id="nd_listprice" type="number" placeholder="219000"></div>
+      <div class="modal-actions">
+        <button class="btn" id="dealNextBtn">Next: Add Comparables →</button>
+        <button class="btn secondary" id="cancelDealBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="dealStep2" style="display:none;">
+      <h2>+ New Deal — Step 2: Comparables</h2>
+      <p style="font-size:12px;color:var(--chalk-dim);margin:-8px 0 14px;">Add 5 comps to calculate ARV, repair estimate, MAO, offer, and fee. Comps older than 6 months, or more than 300 sqft off from the subject, are blocked and won't count.</p>
+      <div class="subject-row">
+        <div class="field"><label>Subject Property Sqft</label><input id="nd_subject_sqft" type="number" placeholder="1850"></div>
+      </div>
+      <div id="ndCompsRows"></div>
+
+      <div class="field" style="margin-top:6px;">
+        <label>Repair Estimate — Pick a Condition</label>
+        <p class="repair-cat-intro">Rough national averages for investor-grade rehab work (not retail homeowner pricing) — adjust for your market.</p>
+        <div class="repair-cat-grid" id="nd_repair_cats"></div>
+        <input id="nd_repairs" type="number" placeholder="35000" style="margin-top:10px;">
+        <div class="hint">Pick a category above to auto-fill, or type your own number — it's always editable.</div>
+      </div>
+
+      <div class="arv-preview">
+        <div><div class="label">Calculated ARV</div><div class="val" id="nd_arv_preview">$0</div></div>
+        <div><div class="label">Calculated MAO</div><div class="val" id="nd_mao_preview" style="color:var(--gold);">$0</div></div>
+        <div class="hint" id="nd_comps_status">0 of 5 usable comps</div>
+      </div>
+      <div class="calc-grid" style="margin-top:14px;">
+        <div class="field"><label>Your Offer ($) — pre-fills from MAO</label><input id="nd_offer" type="number" placeholder="180000"></div>
+        <div class="field"><label>Assignment Fee ($)</label><input id="nd_fee" type="number" placeholder="10000"></div>
+      </div>
+      <div class="field">
+        <label>Deal Type</label>
+        <div class="sale-type-row">
+          <label class="sale-type-pill"><input type="radio" name="nd_saletype" value="Cash" checked> Cash</label>
+          <label class="sale-type-pill"><input type="radio" name="nd_saletype" value="Creative"> Creative</label>
+          <label class="sale-type-pill"><input type="radio" name="nd_saletype" value="JV"> JV</label>
+        </div>
+      </div>
+      <div class="arv-preview" id="nd_score_box" style="margin-top:4px;">
+        <div>
+          <div class="label">Deal Score</div>
+          <div class="score-preview-val" id="nd_score_val">--/100</div>
+          <div class="score-tier-label" id="nd_score_label">Add 5 usable comps to score this deal</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="dealFinishBtn">Create Deal</button>
+        <button class="btn secondary" id="dealBackBtn">← Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="compsModalBg">
+  <div class="modal wide">
+    <h2>📊 Comparables — <span id="comps_deal_name"></span></h2>
+    <p style="font-size:12px;color:var(--chalk-dim);margin:-8px 0 14px;">Add all 5 comps with sale price, sqft, and date to auto-calculate ARV. Comps sold over 6 months ago, or more than 300 sqft off from the subject, are blocked and excluded.</p>
+    <div class="subject-row">
+      <div class="field"><label>Subject Property Sqft</label><input id="comps_subject_sqft" type="number" placeholder="1850"></div>
+    </div>
+    <div id="compsRows"></div>
+
+    <div class="field" style="margin-top:6px;">
+      <label>Repair Estimate — Pick a Condition</label>
+      <p class="repair-cat-intro">Rough national averages for investor-grade rehab work (not retail homeowner pricing) — adjust for your market.</p>
+      <div class="repair-cat-grid" id="comps_repair_cats"></div>
+      <input id="comps_repairs" type="number" placeholder="35000" style="margin-top:10px;">
+      <div class="hint">Pick a category above to auto-fill, or type your own number — it's always editable.</div>
+    </div>
+
+    <div class="arv-preview">
+      <div>
+        <div class="label">Calculated ARV</div>
+        <div class="val" id="comps_arv_preview">$0</div>
+      </div>
+      <div>
+        <div class="label">Calculated MAO</div>
+        <div class="val" id="comps_mao_preview" style="color:var(--gold);">$0</div>
+      </div>
+      <div class="hint" id="comps_status">0 of 5 comps complete</div>
+      <div class="hint">MAO uses the repair estimate above, the assignment fee below, and the current rule %</div>
+    </div>
+    <div class="calc-grid" style="margin-top:12px;">
+      <div class="field"><label>Your Offer ($)</label><input id="comps_offer" type="number" placeholder="180000"></div>
+      <div class="field"><label>Assignment Fee ($)</label><input id="comps_fee" type="number" placeholder="10000"></div>
+    </div>
+    <div class="arv-preview" id="comps_score_box" style="margin-top:4px;">
+      <div>
+        <div class="label">Deal Score</div>
+        <div class="score-preview-val" id="comps_score_val">--/100</div>
+        <div class="score-tier-label" id="comps_score_label">Add 5 usable comps to score this deal</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="saveCompsBtn">Save comparables</button>
+      <button class="btn secondary" id="cancelCompsBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="buyerModalBg">
+  <div class="modal">
+    <h2>+ New Buyer</h2>
+    <div class="field"><label>Name / Company</label><input id="b_name" placeholder="Marcus T. — TX Flip Capital"></div>
+    <div class="calc-grid">
+      <div class="field"><label>Phone</label><input id="b_phone" placeholder="214-555-0142"></div>
+      <div class="field"><label>Email</label><input id="b_email" placeholder="marcus@email.com"></div>
+    </div>
+    <div class="field"><label>Buying Power ($)</label><input id="b_power" type="number" placeholder="220000"></div>
+    <div class="field">
+      <label>Target Market Locations</label>
+      <div class="tag-input-row">
+        <input id="b_market_input" placeholder="e.g. Princeton, TX — press Enter to add">
+        <button class="btn small secondary" id="b_market_add" type="button">Add</button>
+      </div>
+      <div id="b_market_pills"></div>
+    </div>
+    <div class="field"><label>Buy Box / Notes</label><input id="b_notes" placeholder="Fix & flip, closes in 10 days, 3+ bed"></div>
+    <div class="modal-actions">
+      <button class="btn" id="saveBuyerBtn">Add buyer</button>
+      <button class="btn secondary" id="cancelBuyerBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="confirmModalBg">
+  <div class="modal">
+    <h2>Are you sure?</h2>
+    <p id="confirmMessage" style="font-size:13px;color:var(--chalk-dim);"></p>
+    <div class="modal-actions">
+      <button class="btn danger" id="confirmYesBtn">Yes, continue</button>
+      <button class="btn secondary" id="confirmNoBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'wholesale-dealboard-state-v1';
+  const STAGES = ['Lead','Contacted','Negotiating','Under Contract','Assigned','Closed'];
+  const STAGE_XP = {'Lead':5,'Contacted':10,'Negotiating':15,'Under Contract':50,'Assigned':100,'Closed':300};
+  const LEVELS = [
+    {min:0,    title:'Bird Dog',            icon:'🐕', color:'#8B6B4A'},
+    {min:150,  title:'Cold Caller',         icon:'📞', color:'#6B7A8F'},
+    {min:400,  title:'Lead Hunter',         icon:'🎯', color:'#4E8B7C'},
+    {min:800,  title:'Contract Chaser',     icon:'✍️', color:'#6DA0C4'},
+    {min:1400, title:'Deal Closer',         icon:'🔨', color:'#C97C3D'},
+    {min:2200, title:'Market Maker',        icon:'🗺️', color:'#8B6FB3'},
+    {min:3200, title:'Portfolio Builder',   icon:'🏗️', color:'#4F9E6E'},
+    {min:4500, title:'Regional Wholesaler', icon:'🌎', color:'#C9A227'},
+    {min:6200, title:'Wholesale Baron',     icon:'👑', color:'#A83246'},
+    {min:8500, title:'Wholesale Legend',    icon:'⭐', color:'#F0D878'}
+  ];
+  const XP_GUIDE = [
+    {icon:'📋', text:'Add a new lead', xp:'+5 XP'},
+    {icon:'🤝', text:'Add a cash buyer', xp:'+15 XP'},
+    {icon:'📞', text:'Log daily outreach', xp:'+10 XP'},
+    {icon:'📊', text:'Complete 5 comps (auto-ARV)', xp:'+20 XP'},
+    {icon:'➡️', text:'Advance a deal a stage', xp:'+10 to +100 XP'},
+    {icon:'🔨', text:'Close a deal', xp:'+300 XP'}
+  ];
+  const BADGE_DEFS = [
+    {id:'first_deal', icon:'📋', name:'First Blood', check: s => s.deals.length >= 1},
+    {id:'first_contract', icon:'✍️', name:'Contract Hunter', check: s => s.deals.some(d=>['Under Contract','Assigned','Closed'].includes(d.stage))},
+    {id:'first_close', icon:'🔨', name:'First Close', check: s => s.deals.some(d=>d.stage==='Closed')},
+    {id:'multi_market', icon:'🗺️', name:'Multi-Market Op', check: s => new Set(s.deals.map(d=>d.market)).size >= 3},
+    {id:'buyer_network', icon:'🤝', name:'Buyer Network', check: s => (s.buyers||[]).length >= 3},
+    {id:'five_closed', icon:'💰', name:'Volume Dealer', check: s => s.deals.filter(d=>d.stage==='Closed').length >= 5},
+    {id:'high_roller', icon:'💎', name:'High Roller', check: s => s.deals.some(d=>d.stage==='Closed' && Number(d.fee)>=10000)},
+    {id:'streak7', icon:'🔥', name:'Consistency King', check: s => s.streakCount >= 7},
+    {id:'ten_deals', icon:'🏗️', name:'Pipeline Builder', check: s => s.deals.length >= 10}
+  ];
+
+  // ---------- Markets ----------
+  // The full list of markets you work — add or remove states here and every
+  // dropdown, filter, and buying-power breakdown in the app picks it up automatically.
+  const MARKETS = [
+    {name:'Texas',           abbr:'TX', color:'#C9A227'},
+    {name:'Florida',         abbr:'FL', color:'#6DA0C4'},
+    {name:'Ohio',            abbr:'OH', color:'#BE4B36'},
+    {name:'Pennsylvania',    abbr:'PA', color:'#8B6FB3'},
+    {name:'Arizona',         abbr:'AZ', color:'#C97C3D'},
+    {name:'North Carolina',  abbr:'NC', color:'#4E8B7C'},
+    {name:'Georgia',         abbr:'GA', color:'#4F9E6E'},
+    {name:'Tennessee',       abbr:'TN', color:'#6B7A8F'},
+    {name:'Missouri',        abbr:'MO', color:'#8B6B4A'},
+    {name:'Alabama',         abbr:'AL', color:'#A83246'}
+  ];
+  const STATE_ABBR = Object.fromEntries(MARKETS.map(m=>[m.name, m.abbr]));
+  const STATE_MARKET = Object.fromEntries(MARKETS.map(m=>[m.abbr, m.name]));
+
+  // ---------- Buyer ↔ deal matching ----------
+  function buyerTargetsMarket(buyer, market){
+    const abbr = STATE_ABBR[market];
+    return (buyer.markets||[]).some(m => {
+      const up = m.toUpperCase();
+      return up.includes(', ' + abbr) || up.endsWith(abbr) || m.toLowerCase().includes(market.toLowerCase());
+    });
+  }
+  // Splits a buyer's target-market tag like "Princeton, TX" into {city, state}.
+  function parseBuyerMarketTag(tag){
+    const parts = tag.split(',').map(s=>s.trim());
+    return {city: (parts[0]||'').toLowerCase(), state: (parts[1]||'').toUpperCase()};
+  }
+  // Returns buyers who target this deal, sorted best-match first.
+  // 'city' match (same city + state) ranks above a 'state'-only (market-wide) match.
+  function matchBuyersForDeal(deal, buyers){
+    const abbr = STATE_ABBR[deal.market];
+    const dealCity = (deal.city||'').trim().toLowerCase();
+    const matches = [];
+    (buyers||[]).forEach(b=>{
+      let best = null;
+      (b.markets||[]).forEach(tag=>{
+        const {city, state} = parseBuyerMarketTag(tag);
+        const stateMatches = state === abbr || tag.toLowerCase().includes((deal.market||'').toLowerCase());
+        if(!stateMatches) return;
+        const cityMatches = dealCity && city && city === dealCity;
+        const quality = cityMatches ? 'city' : 'state';
+        if(!best || (quality === 'city' && best.quality !== 'city')) best = {quality};
+      });
+      if(best) matches.push({buyer: b, quality: best.quality});
+    });
+    matches.sort((a,b)=> (a.quality==='city'?0:1) - (b.quality==='city'?0:1) || (Number(b.buyer.buyingPower)||0) - (Number(a.buyer.buyingPower)||0));
+    return matches;
+  }
+
+  let state = null;
+  let activeMarket = 'All';
+
+  function uid(){ return 'd'+Math.random().toString(36).slice(2,10); }
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function dateDaysAgo(days){ return new Date(Date.now() - days*86400000).toISOString().slice(0,10); }
+  function fmt(n){ return '$'+Number(n||0).toLocaleString(); }
+
+  function seedState(){
+    const now = todayStr();
+    return {
+      deals: [
+        {id:uid(), address:'317 Allenwood Dr', city:'Princeton', market:'Texas', listPrice:219000, saleType:'Cash', zillowUrl:'https://www.zillow.com/homedetails/317-Allenwood-Dr-Princeton-TX-75407/12345678_zpid/', arv:284286, repairs:35000, offer:180000, fee:12000, stage:'Under Contract', added:now, sqft:1850, notes:'Seller motivated — relocating for work by end of month. Lockbox code 4521. Agent: Dana R., 972-555-0110.', comps:[
+          {address:'1000 Cedar Ln', price:290000, sqft:1900, date:dateDaysAgo(55)},
+          {address:'55 Birch Ct', price:275000, sqft:1780, date:dateDaysAgo(80)},
+          {address:'77 Oakview Dr', price:300000, sqft:1950, date:dateDaysAgo(20)},
+          {address:'12 Meadow Ln', price:260000, sqft:1700, date:dateDaysAgo(150)},
+          {address:'9 Sunset Blvd', price:305000, sqft:1975, date:dateDaysAgo(10)}
+        ]},
+        {id:uid(), address:'884 Citrus Grove Rd', city:'Zephyrhills', market:'Florida', listPrice:179000, saleType:'Creative', zillowUrl:'', arv:210000, repairs:28000, offer:132000, fee:9000, stage:'Negotiating', added:now, sqft:0, notes:'Tenant-occupied, month-to-month. Seller open to subject-to terms.', comps:[]},
+        {id:uid(), address:'1129 Maple Hollow Ave', city:'Columbus', market:'Ohio', listPrice:139000, saleType:'JV', zillowUrl:'', arv:165000, repairs:22000, offer:96000, fee:7500, stage:'Contacted', added:now, sqft:0, notes:'', comps:[]}
+      ],
+      buyers: [
+        {id:uid(), name:'Marcus T.', phone:'214-555-0142', email:'marcus@txflipcapital.com', buyingPower:220000, markets:['Princeton, TX','Dallas, TX'], notes:'Fix & flip, closes in 10 days, prefers 3+ bed'},
+        {id:uid(), name:'Sarah K.', phone:'813-555-0199', email:'sarah@gulfcoastholdings.com', buyingPower:300000, markets:['Zephyrhills, FL','Tampa, FL'], notes:'Buy & hold, cash, no financing contingency'}
+      ],
+      activity: [
+        {t: new Date().toISOString(), text:'Deal board initialized — 3 starter deals loaded across TX, FL, OH'}
+      ],
+      xp: 175,
+      streakCount: 1,
+      lastActiveDate: now,
+      earnedBadges: [],
+      lastLevelIndex: levelFor(175).idx,
+      rulePct: 70
+    };
+  }
+
+  // Claude.ai's window.storage only exists inside the Claude artifact runtime.
+  // Once this file is hosted elsewhere (Tiiny.site, GitHub Pages, etc.) it won't exist at all,
+  // so we fall back to the browser's own localStorage — which persists per-browser/device
+  // across refreshes and closed tabs, not just while the tab stays open.
+  function hasClaudeStorage(){
+    return typeof window.storage === 'object' && window.storage && typeof window.storage.get === 'function';
+  }
+
+  function normalizeState(parsed){
+    if(!parsed.buyers) parsed.buyers = [];
+    if(parsed.lastLevelIndex === undefined) parsed.lastLevelIndex = levelFor(parsed.xp||0).idx;
+    return parsed;
+  }
+
+  async function loadState(){
+    if(hasClaudeStorage()){
+      try{
+        const res = await window.storage.get(STORAGE_KEY, false);
+        if(res && res.value){
+          return normalizeState(JSON.parse(res.value));
+        }
+      }catch(e){ console.error('claude storage load failed', e); }
+    }
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        return normalizeState(JSON.parse(raw));
+      }
+    }catch(e){ console.error('localStorage load failed', e); }
+
+    const seeded = seedState();
+    saveState(seeded);
+    return seeded;
+  }
+
+  let storageWarned = false;
+  async function saveState(s){
+    const json = JSON.stringify(s);
+    let saved = false;
+
+    if(hasClaudeStorage()){
+      try{
+        const res = await window.storage.set(STORAGE_KEY, json, false);
+        if(res) saved = true;
+      }catch(e){ console.error('claude storage save failed', e); }
+    }
+    try{
+      localStorage.setItem(STORAGE_KEY, json);
+      saved = true;
+    }catch(e){ console.error('localStorage save failed', e); }
+
+    if(!saved){
+      if(!storageWarned){
+        storageWarned = true;
+        showToast("⚠ Can't save progress on this browser — changes will only last for this tab session.");
+      }
+    } else {
+      storageWarned = false;
+    }
+  }
+
+  function levelFor(xp){
+    let cur = LEVELS[0], next = null, idx = 0;
+    for(let i=0;i<LEVELS.length;i++){
+      if(xp >= LEVELS[i].min){ cur = LEVELS[i]; next = LEVELS[i+1] || null; idx = i; }
+    }
+    return {cur, next, idx};
+  }
+
+  // Call after any XP change. Returns the new level's title if the person just leveled up, else null.
+  function checkLevelUp(){
+    const {cur, idx} = levelFor(state.xp);
+    if(state.lastLevelIndex === undefined) state.lastLevelIndex = idx;
+    if(idx > state.lastLevelIndex){
+      state.lastLevelIndex = idx;
+      logActivity('🎉 Leveled up to ' + cur.title + ' (Level ' + (idx+1) + ')!');
+      return cur.title;
+    }
+    return null;
+  }
+
+  function computeMAO(arv, repairs, fee, rulePct){
+    return Math.max(0, Math.round((Number(arv||0) * (rulePct/100)) - Number(repairs||0) - Number(fee||0)));
+  }
+
+  // Requires all 5 comps to have a price; sqft is used per-comp when present.
+  // Comps are weighted by recency — a comp sold last month counts more than one sold 10 months ago.
+  // If every comp + the subject have sqft, ARV = weighted avg($/sqft across comps) x subject sqft.
+  // Otherwise falls back to a weighted average of the 5 comp sale prices.
+  function monthsAgo(dateStr){
+    if(!dateStr) return null;
+    const then = new Date(dateStr);
+    if(isNaN(then)) return null;
+    return Math.max(0, (Date.now() - then.getTime()) / (1000*60*60*24*30.44));
+  }
+  const STALE_MONTHS = 6;
+  const SQFT_TOLERANCE = 300;
+  // A comp is blocked when it HAS a date that's older than 6 months, OR it has a sqft
+  // that's more than 300 sqft off from the subject property (in either direction).
+  // Comps missing that data point aren't blocked on it — just unweighted — so partial data doesn't dead-end the form.
+  function compBlockReasons(c, subjectSqft){
+    const m = monthsAgo(c.date);
+    const dateBlocked = m !== null && m > STALE_MONTHS;
+    const sqftDiff = (Number(subjectSqft)>0 && Number(c.sqft)>0) ? Math.abs(Number(c.sqft) - Number(subjectSqft)) : null;
+    const sqftBlocked = sqftDiff !== null && sqftDiff > SQFT_TOLERANCE;
+    return {dateBlocked, sqftBlocked, sqftDiff};
+  }
+  function isCompBlocked(c, subjectSqft){
+    const r = compBlockReasons(c, subjectSqft);
+    return r.dateBlocked || r.sqftBlocked;
+  }
+  function recencyWeight(dateStr){
+    const m = monthsAgo(dateStr);
+    if(m === null) return 1; // no date given — treat as neutral weight
+    return Math.max(0.35, 1 - (m * 0.025)); // lose 2.5%/month of weight, floor at 0.35
+  }
+  function computeARVFromComps(comps, subjectSqft){
+    if(!comps || comps.length < 5) return null;
+    const valid = comps.filter(c => Number(c.price) > 0 && !isCompBlocked(c, subjectSqft));
+    if(valid.length < 5) return null;
+    const weights = valid.map(c => recencyWeight(c.date));
+    const totalW = weights.reduce((a,w)=>a+w, 0);
+    const withSqft = valid.filter(c => Number(c.sqft) > 0);
+    if(withSqft.length === valid.length && Number(subjectSqft) > 0){
+      const wSum = withSqft.reduce((a,c,i)=> a + ((Number(c.price)/Number(c.sqft)) * weights[i]), 0);
+      const avgPsf = wSum / totalW;
+      return Math.round(avgPsf * Number(subjectSqft));
+    }
+    const wSum = valid.reduce((a,c,i)=> a + (Number(c.price) * weights[i]), 0);
+    return Math.round(wSum / totalW);
+  }
+  // Rough, editable starting points — not gospel, just a sane default so the form isn't blank.
+  function computeAutoRepairs(arv){
+    return Math.round((arv * 0.12) / 500) * 500; // ~12% of ARV for a typical light-to-moderate rehab
+  }
+  function computeAutoFee(mao){
+    return Math.min(15000, Math.max(5000, Math.round((mao * 0.07) / 500) * 500)); // ~7% of MAO, floored/capped
+  }
+
+  // Investor/wholesaler-grade rehab tiers — these run lower than retail homeowner remodel
+  // pricing since investors use efficient contractors and mid-grade materials, not showroom finishes.
+  // Rates are rough national averages (2026); always adjust for your specific market.
+  const REPAIR_CATEGORIES = [
+    {id:'turnkey', name:'Turnkey / Cosmetic', rate:10, range:'$5–$15/sqft',
+      desc:'Move-in ready already. Deep clean, paint touch-ups, maybe new carpet. No permits, no systems work.'},
+    {id:'light', name:'Light Rehab', rate:22, range:'$15–$25/sqft',
+      desc:'Paint, flooring, fixtures, light landscaping. Kitchen & bath stay as-is or get a cosmetic refresh.'},
+    {id:'medium', name:'Medium Rehab', rate:38, range:'$30–$50/sqft',
+      desc:'Kitchen & bath remodel, some plumbing/electrical/HVAC work, updates throughout. Permits likely.'},
+    {id:'heavy', name:'Heavy Rehab', rate:68, range:'$55–$80/sqft',
+      desc:'Major systems replaced (HVAC, electrical, plumbing), possible structural work, most rooms touched.'},
+    {id:'gut', name:'Full Gut', rate:115, range:'$90–$150+/sqft',
+      desc:'Stripped to the studs. New layout, all-new systems, structural rebuild. Foundation-up condition.'}
+  ];
+  const ndSelectedCat = {value:null};
+  const compsSelectedCat = {value:null};
+
+  function repairCategoriesHtml(sqft, selectedCatRef){
+    return REPAIR_CATEGORIES.map(cat=>{
+      const total = sqft>0 ? Math.round((sqft*cat.rate)/500)*500 : null;
+      const selected = selectedCatRef.value === cat.id;
+      return `
+        <div class="repair-cat ${selected?'selected':''}" data-cat="${cat.id}" data-rate="${cat.rate}">
+          <div class="repair-cat-name">${cat.name}</div>
+          <div class="repair-cat-rate">${cat.range}</div>
+          <div class="repair-cat-desc">${cat.desc}</div>
+          <div class="repair-cat-total">${total!==null ? fmt(total) : 'Enter sqft above'}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function wireRepairCategories(gridId, sqftInputId, repairsInputId, selectedCatRef, onPick){
+    const grid = document.getElementById(gridId);
+    const sqft = Number(document.getElementById(sqftInputId).value)||0;
+    grid.innerHTML = repairCategoriesHtml(sqft, selectedCatRef);
+    grid.querySelectorAll('.repair-cat').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const curSqft = Number(document.getElementById(sqftInputId).value)||0;
+        if(!curSqft){ showToast('Enter subject sqft first'); return; }
+        const rate = Number(el.getAttribute('data-rate'));
+        const total = Math.round((curSqft*rate)/500)*500;
+        const repairsInput = document.getElementById(repairsInputId);
+        repairsInput.value = total;
+        repairsInput.setAttribute('data-user-edited','true');
+        selectedCatRef.value = el.getAttribute('data-cat');
+        wireRepairCategories(gridId, sqftInputId, repairsInputId, selectedCatRef, onPick);
+        onPick();
+      });
+    });
+  }
+
+  // Deal Score out of 100 — a rough "is this worth pursuing" read once comps are in.
+  // 40 pts: cushion between MAO and your offer (bigger cushion = more room for the assignment fee)
+  // 20 pts: repair estimate as a % of ARV (lower repair risk = better)
+  // 25 pts: comp confidence (how many usable comps, and how recent they are)
+  // 15 pts: whether the assignment fee actually fits inside the cushion
+  function computeDealScore(arv, repairs, offer, fee, comps, subjectSqft, rulePct){
+    if(!arv || arv <= 0) return null;
+    const baseMAO = computeMAO(arv, repairs, 0, rulePct); // ceiling before the fee is set aside
+    const finalMAO = computeMAO(arv, repairs, fee, rulePct); // what's actually left for your offer
+
+    // Margin: MAO is already your safe ceiling (ARV × rule − repairs − fee), so offering
+    // AT or below it is exactly what it's for — full marks. The only real risk here is
+    // offering ABOVE MAO, which eats into your fee or worse; that's what gets penalized,
+    // tapering to 0 once the offer is 20%+ over MAO.
+    let marginScore;
+    if(finalMAO <= 0) marginScore = 0;
+    else{
+      const offerRatio = Number(offer||0) / finalMAO;
+      marginScore = offerRatio <= 1
+        ? 40
+        : Math.max(0, 40 - (offerRatio - 1) * 200);
+    }
+
+    const repairPct = Number(repairs||0) / arv;
+    const repairScore = Math.max(0, Math.min(1, (0.25 - repairPct) / 0.25)) * 20;
+
+    const usable = (comps||[]).filter(c => Number(c.price)>0 && !isCompBlocked(c, subjectSqft));
+    const usableRatio = Math.min(usable.length, 5) / 5;
+    const dated = usable.filter(c => c.date);
+    const avgMonths = dated.length ? dated.reduce((a,c)=>a+monthsAgo(c.date),0)/dated.length : 4;
+    const recencyBonus = avgMonths <= 3 ? 5 : (avgMonths <= 6 ? 2 : 0);
+    const compScore = (usableRatio * 20) + recencyBonus;
+
+    // Fee sanity: how much of the pre-fee spread your assignment fee eats up.
+    // Full marks at 10% or less of baseMAO, tapering to 0 at 30%+.
+    let feeScore;
+    const feeNum = Number(fee||0);
+    if(baseMAO <= 0) feeScore = 0;
+    else{
+      const feeRatio = feeNum / baseMAO;
+      feeScore = Math.max(0, Math.min(1, (0.30 - feeRatio) / 0.20)) * 15;
+    }
+
+    const total = Math.round(marginScore + repairScore + compScore + feeScore);
+    return Math.max(0, Math.min(100, total));
+  }
+  function dealScoreTier(score){
+    if(score >= 80) return {cls:'good', label:'Strong — Pursue'};
+    if(score >= 60) return {cls:'ok', label:'Good — Worth Pursuing'};
+    if(score >= 40) return {cls:'warn', label:'Marginal — Negotiate Harder'};
+    return {cls:'bad', label:'Weak — Consider Passing'};
+  }
+  function applyScoreDisplay(valId, labelId, score){
+    const valEl = document.getElementById(valId);
+    const labelEl = document.getElementById(labelId);
+    if(!valEl || !labelEl) return;
+    valEl.classList.remove('good','ok','warn','bad');
+    labelEl.classList.remove('good','ok','warn','bad');
+    if(score === null){
+      valEl.textContent = '--/100';
+      labelEl.textContent = 'Add 5 usable comps to score this deal';
+      return;
+    }
+    const tier = dealScoreTier(score);
+    valEl.textContent = score + '/100';
+    valEl.classList.add(tier.cls);
+    labelEl.textContent = tier.label;
+    labelEl.classList.add(tier.cls);
+  }
+
+  function logActivity(text){
+    state.activity.unshift({t: new Date().toISOString(), text});
+    state.activity = state.activity.slice(0, 40);
+  }
+
+  function checkStreak(){
+    const t = todayStr();
+    if(state.lastActiveDate === t) return;
+    const last = state.lastActiveDate ? new Date(state.lastActiveDate) : null;
+    const diffDays = last ? Math.round((new Date(t) - last) / 86400000) : null;
+    if(diffDays === 1){ state.streakCount += 1; }
+    else { state.streakCount = 1; }
+    state.lastActiveDate = t;
+  }
+
+  function checkBadges(){
+    const newly = [];
+    BADGE_DEFS.forEach(b=>{
+      if(!state.earnedBadges.includes(b.id) && b.check(state)){
+        state.earnedBadges.push(b.id);
+        newly.push(b.name);
+      }
+    });
+    return newly;
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(()=> t.classList.remove('show'), 2600);
+  }
+
+  // Native confirm()/alert()/prompt() are frequently blocked inside sandboxed artifact
+  // iframes with no way to grant permission — when blocked they silently return false,
+  // which makes any "if(!confirm(...)) return;" code look like it does nothing at all.
+  // This is a self-contained replacement that doesn't depend on the browser's native dialog.
+  let confirmCallback = null;
+  function showConfirm(message, onYes){
+    document.getElementById('confirmMessage').textContent = message;
+    confirmCallback = onYes;
+    document.getElementById('confirmModalBg').classList.add('open');
+  }
+  function closeConfirm(){
+    document.getElementById('confirmModalBg').classList.remove('open');
+    confirmCallback = null;
+  }
+  document.getElementById('confirmYesBtn').addEventListener('click', ()=>{
+    const cb = confirmCallback;
+    closeConfirm();
+    if(cb) cb();
+  });
+  document.getElementById('confirmNoBtn').addEventListener('click', closeConfirm);
+  document.getElementById('confirmModalBg').addEventListener('click', (e)=>{ if(e.target.id==='confirmModalBg') closeConfirm(); });
+
+  function addDeal(deal){
+    state.deals.push(deal);
+    state.xp += STAGE_XP['Lead'];
+    logActivity('Added new lead: ' + deal.address + ' (' + deal.market + ')');
+    const matches = matchBuyersForDeal(deal, state.buyers);
+    if(matches.length){
+      logActivity(deal.address + ' matches ' + matches.length + ' buyer(s): ' + matches.map(m=>m.buyer.name).join(', '));
+    }
+    checkStreak();
+    const newBadges = checkBadges();
+    const leveledUp = checkLevelUp();
+    render();
+    let msg = 'Deal added · +5 XP';
+    if(matches.length) msg += ' · matches ' + matches.length + ' buyer' + (matches.length===1?'':'s');
+    if(newBadges.length) msg += ' · Badge unlocked: '+newBadges[0];
+    if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+    showToast(msg);
+    saveState(state);
+  }
+
+  function moveDealToStage(id, newStage){
+    const d = state.deals.find(x=>x.id===id);
+    if(!d || !STAGES.includes(newStage) || d.stage === newStage) return;
+    const oldIdx = STAGES.indexOf(d.stage);
+    const newIdx = STAGES.indexOf(newStage);
+    d.stage = newStage;
+    if(newStage === 'Closed'){ d.closedDate = todayStr(); }
+    else { delete d.closedDate; }
+
+    let msg;
+    if(newIdx > oldIdx){
+      const gained = STAGE_XP[newStage] || 10;
+      state.xp += gained;
+      logActivity(d.address + ' moved to ' + newStage + ' · +' + gained + ' XP');
+      msg = '+' + gained + ' XP — now ' + newStage;
+    } else {
+      logActivity(d.address + ' moved back to ' + newStage);
+      msg = 'Moved back to ' + newStage;
+    }
+    checkStreak();
+    const newBadges = checkBadges();
+    const leveledUp = checkLevelUp();
+    render();
+    let toastMsg = msg + (newBadges.length? ' · Badge: '+newBadges[0] : '');
+    if(leveledUp) toastMsg += ' · 🎉 LEVEL UP → ' + leveledUp;
+    showToast(toastMsg);
+    saveState(state);
+  }
+
+  function advanceStage(id){
+    const d = state.deals.find(x=>x.id===id);
+    if(!d) return;
+    const idx = STAGES.indexOf(d.stage);
+    if(idx >= STAGES.length-1) return;
+    moveDealToStage(id, STAGES[idx+1]);
+  }
+
+  function removeDeal(id){
+    const d = state.deals.find(x=>x.id===id);
+    if(!d) return;
+    showConfirm('Remove ' + d.address + ' from the board?', ()=>{
+      state.deals = state.deals.filter(x=>x.id!==id);
+      logActivity('Removed deal: ' + d.address);
+      render();
+      saveState(state);
+    });
+  }
+
+  // Notes save on a short debounce and deliberately skip render() — a full re-render
+  // while typing would blow away cursor position and focus mid-sentence.
+  const notesDebounceTimers = {};
+  function updateDealNotes(id, value){
+    const d = state.deals.find(x=>x.id===id);
+    if(!d) return;
+    d.notes = value;
+    clearTimeout(notesDebounceTimers[id]);
+    notesDebounceTimers[id] = setTimeout(()=>{ saveState(state); }, 700);
+  }
+
+  function removeBuyer(id){
+    const b = state.buyers.find(x=>x.id===id);
+    if(!b) return;
+    showConfirm('Remove ' + b.name + ' from your buyers list?', ()=>{
+      state.buyers = state.buyers.filter(x=>x.id!==id);
+      logActivity('Removed buyer: ' + b.name);
+      render();
+      saveState(state);
+    });
+  }
+
+  // ---------- Buyer list import (CSV / XLSX) ----------
+  // Header matching is keyword-based rather than exact-string, so slightly different
+  // export formats (Dealwright's own sheet, a CRM export, etc.) still map correctly
+  // without needing an exact column-name match.
+  const BUYER_HEADER_MAP = [
+    {field:'name', keywords:['buyer name','name']},
+    {field:'markets', keywords:['market']},
+    {field:'buyingPower', keywords:['avg buying power','buying power']},
+    {field:'priceMin', keywords:['price min','min price']},
+    {field:'priceMax', keywords:['price max','max price']},
+    {field:'closeTime', keywords:['close time']},
+    {field:'arv', keywords:['arv']},
+    {field:'propertyType', keywords:['property type']},
+    {field:'buyerType', keywords:['buyer type']},
+    {field:'email', keywords:['email']},
+    {field:'phone', keywords:['phone']},
+    {field:'website', keywords:['website']},
+    {field:'noCap', keywords:['no-cap','no cap','placeholder']},
+    {field:'notes', keywords:['notes']}
+  ];
+
+  function detectHeaderRow(rows){
+    for(let i=0; i<Math.min(rows.length, 15); i++){
+      const row = rows[i] || [];
+      const hits = row.filter(c => typeof c === 'string' && /^(buyer\s*name|name)$/i.test(c.trim())).length;
+      if(hits > 0) return i;
+    }
+    return -1;
+  }
+
+  function mapHeaderRow(row){
+    const map = {};
+    row.forEach((cell, idx)=>{
+      if(typeof cell !== 'string') return;
+      const clean = cell.toLowerCase().trim();
+      BUYER_HEADER_MAP.forEach(spec=>{
+        if(map[spec.field] !== undefined) return; // first match wins
+        if(spec.keywords.some(k => clean.includes(k))) map[spec.field] = idx;
+      });
+    });
+    return map;
+  }
+
+  function splitMarketCell(raw){
+    if(!raw) return [];
+    return String(raw)
+      .split(/;|\s&\s/)
+      .map(s=>s.trim())
+      .filter(Boolean);
+  }
+
+  function buildImportedNotes(row, colMap){
+    const get = f => (colMap[f] !== undefined ? row[colMap[f]] : null);
+    const parts = [];
+    const buyerType = get('buyerType');
+    const closeTime = get('closeTime');
+    const arv = get('arv');
+    const propType = get('propertyType');
+    const headerBits = [buyerType, closeTime? 'closes '+closeTime : null, arv, propType].filter(Boolean);
+    if(headerBits.length) parts.push(headerBits.join(' · '));
+    const noCap = get('noCap');
+    if(noCap && /yes/i.test(String(noCap))) parts.push('⚠ Unlimited / placeholder budget — not a firm cap');
+    const notes = get('notes');
+    if(notes) parts.push(String(notes).trim());
+    const website = get('website');
+    if(website) parts.push(String(website).trim());
+    return parts.join('\n');
+  }
+
+  function importBuyersFile(e){
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    if(typeof XLSX === 'undefined'){
+      showToast("⚠ Couldn't load the file reader — try again in a moment");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array'});
+        let sheetName = wb.SheetNames.find(n => /buyer/i.test(n)) || wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:null, blankrows:false});
+        const headerIdx = detectHeaderRow(rows);
+        if(headerIdx === -1){
+          showToast("⚠ Couldn't find a header row with a buyer name column in this file");
+          return;
+        }
+        const colMap = mapHeaderRow(rows[headerIdx]);
+        if(colMap.name === undefined){
+          showToast("⚠ Couldn't find a 'Buyer Name' column in this file");
+          return;
+        }
+        const existingNames = new Set(state.buyers.map(b=>b.name.trim().toLowerCase()));
+        let imported = 0, skipped = 0;
+        const newBuyers = [];
+        for(let i=headerIdx+1; i<rows.length; i++){
+          const row = rows[i];
+          if(!row || !row[colMap.name]) continue;
+          const name = String(row[colMap.name]).trim();
+          if(!name || /average|totals?$/i.test(name)) continue; // skip summary rows
+          if(existingNames.has(name.toLowerCase())){ skipped++; continue; }
+
+          const buyingPowerRaw = colMap.buyingPower!==undefined ? row[colMap.buyingPower] : null;
+          let buyingPower = Number(buyingPowerRaw)||0;
+          if(!buyingPower && colMap.priceMin!==undefined && colMap.priceMax!==undefined){
+            const mn = Number(row[colMap.priceMin])||0, mx = Number(row[colMap.priceMax])||0;
+            if(mn||mx) buyingPower = Math.round((mn+mx)/2);
+          }
+
+          const buyer = {
+            id: uid(),
+            name,
+            phone: colMap.phone!==undefined && row[colMap.phone] ? String(row[colMap.phone]).trim() : '',
+            email: colMap.email!==undefined && row[colMap.email] ? String(row[colMap.email]).trim() : '',
+            buyingPower,
+            markets: splitMarketCell(colMap.markets!==undefined ? row[colMap.markets] : null),
+            notes: buildImportedNotes(row, colMap)
+          };
+          newBuyers.push(buyer);
+          existingNames.add(name.toLowerCase());
+          imported++;
+        }
+
+        if(!imported){
+          showToast(skipped ? 'No new buyers — all ' + skipped + ' were already on your list' : 'No buyer rows found in that file');
+          return;
+        }
+
+        state.buyers.push(...newBuyers);
+        state.xp += imported * 15;
+        let matchedDealCount = 0;
+        state.deals.forEach(d=>{
+          if(matchBuyersForDeal(d, newBuyers).length > 0) matchedDealCount++;
+        });
+        logActivity('Imported ' + imported + ' buyer(s) from ' + file.name + (skipped? ' (' + skipped + ' duplicate(s) skipped)' : '') + (matchedDealCount? ' — matched ' + matchedDealCount + ' deal(s) on the board' : ''));
+        checkStreak();
+        const newBadges = checkBadges();
+        const leveledUp = checkLevelUp();
+        render();
+        let msg = 'Imported ' + imported + ' buyer' + (imported===1?'':'s') + (skipped? ' · ' + skipped + ' duplicate' + (skipped===1?'':'s') + ' skipped' : '');
+        if(matchedDealCount) msg += ' · matches ' + matchedDealCount + ' deal' + (matchedDealCount===1?'':'s');
+        if(newBadges.length) msg += ' · Badge: '+newBadges[0];
+        if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+        showToast(msg);
+        saveState(state);
+      }catch(err){
+        console.error('buyer import failed', err);
+        showToast("⚠ Couldn't read that file — make sure it's a CSV or XLSX buyer list");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function logCallsToday(){
+    checkStreak();
+    logActivity('Logged outreach activity for today — streak ' + state.streakCount + ' day(s)');
+    state.xp += 10;
+    const newBadges = checkBadges();
+    const leveledUp = checkLevelUp();
+    render();
+    let msg = 'Streak updated: ' + state.streakCount + ' 🔥 · +10 XP' + (newBadges.length? ' · Badge: '+newBadges[0] : '');
+    if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+    showToast(msg);
+    saveState(state);
+  }
+
+  function resetAll(){
+    showConfirm('Reset XP and the deal pipeline? Your cash buyers list will stay untouched.', ()=>{
+      const keepBuyers = state.buyers || [];
+      const keepRule = state.rulePct || 70;
+      state = {
+        deals: [],
+        buyers: keepBuyers,
+        activity: [{t: new Date().toISOString(), text: 'Pipeline and XP reset — cash buyers kept'}],
+        xp: 0,
+        streakCount: 0,
+        lastActiveDate: null,
+        earnedBadges: [],
+        lastLevelIndex: 0,
+        rulePct: keepRule
+      };
+      render();
+      showToast('Pipeline and XP reset — your buyers were kept');
+      saveState(state);
+    });
+  }
+
+  function exportBackup(){
+    try{
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'deal-board-backup-' + todayStr() + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Backup downloaded');
+    }catch(e){
+      console.error('export failed', e);
+      showToast("⚠ Couldn't export a backup on this browser");
+    }
+  }
+
+  function importBackup(e){
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.deals)){
+          showToast("⚠ That file doesn't look like a deal board backup");
+          return;
+        }
+        showConfirm('Import this backup? It will replace everything currently on the board.', ()=>{
+          state = normalizeState(parsed);
+          render();
+          showToast('Backup imported');
+          saveState(state);
+        });
+      }catch(err){
+        console.error('import failed', err);
+        showToast("⚠ Couldn't read that file — make sure it's a deal board backup JSON");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  function marketCounts(){
+    const c = {};
+    state.deals.forEach(d=>{ c[d.market] = (c[d.market]||0)+1; });
+    return c;
+  }
+
+  function render(){
+    const app = document.getElementById('app');
+    const {cur, next, idx} = levelFor(state.xp);
+    const closedDeals = state.deals.filter(d=>d.stage==='Closed');
+    const totalFeesClosed = closedDeals.reduce((a,d)=>a+Number(d.fee||0),0);
+    const pipelineFees = state.deals.filter(d=>d.stage!=='Closed').reduce((a,d)=>a+Number(d.fee||0),0);
+    const xpIntoLevel = state.xp - cur.min;
+    const xpSpan = next ? (next.min - cur.min) : Math.max(xpIntoLevel,1);
+    const pct = next ? Math.min(100, Math.round((xpIntoLevel/xpSpan)*100)) : 100;
+
+    const filteredDeals = activeMarket === 'All' ? state.deals : state.deals.filter(d=>d.market===activeMarket);
+    const markets = ['All', ...MARKETS.map(m=>m.name)];
+
+    // ---- Buying power ----
+    const buyersList = state.buyers || [];
+    const totalBuyingPower = buyersList.reduce((a,b)=> a + (Number(b.buyingPower)||0), 0);
+    const powerByMarket = {};
+    MARKETS.forEach(m=>{
+      powerByMarket[m.name] = buyersList.filter(b=>buyerTargetsMarket(b, m.name)).reduce((a,b)=>a+(Number(b.buyingPower)||0),0);
+    });
+    const activeMarketsForPower = MARKETS.filter(m=>powerByMarket[m.name] > 0);
+    const powerMarketTotal = activeMarketsForPower.reduce((a,m)=>a+powerByMarket[m.name],0);
+    const avgPower = buyersList.length ? Math.round(totalBuyingPower / buyersList.length) : 0;
+    const powerStripHtml = buyersList.length ? `
+      <div class="power-strip">
+        <div class="power-main">
+          <div class="power-label">Network Buying Power</div>
+          <div class="power-value">${fmt(totalBuyingPower)}</div>
+          <div class="power-sub">${buyersList.length} active buyer${buyersList.length===1?'':'s'} · avg ${fmt(avgPower)} each</div>
+        </div>
+        <div class="power-breakdown">
+          ${activeMarketsForPower.length ? activeMarketsForPower.map(m=>`
+            <div class="power-market"><span class="power-dot" style="background:${m.color};"></span>${m.name}<b>${fmt(powerByMarket[m.name])}</b></div>
+          `).join('') : `<div class="power-market" style="color:var(--line);">No buyers matched to a market yet</div>`}
+        </div>
+        <div class="power-bar-wrap">
+          <div class="power-bar">
+            ${activeMarketsForPower.map(m=>`<div class="seg" style="width:${powerMarketTotal? (powerByMarket[m.name]/powerMarketTotal)*100 : 0}%; background:${m.color};"></div>`).join('')}
+          </div>
+        </div>
+      </div>` : `
+      <div class="power-strip">
+        <div class="power-main">
+          <div class="power-label">Network Buying Power</div>
+          <div class="power-value">$0</div>
+          <div class="power-sub">Add a buyer with buying power to see it here</div>
+        </div>
+      </div>`;
+
+    let boardHtml = STAGES.map(stage=>{
+      const deals = filteredDeals.filter(d=>d.stage===stage);
+      const cards = deals.map(d=>{
+        const mao = computeMAO(d.arv, d.repairs, d.fee, state.rulePct);
+        const isClosed = stage === 'Closed';
+        const compCount = (d.comps||[]).filter(c=>Number(c.price)>0).length;
+        const isAuto = compCount >= 5;
+        const stageOptions = STAGES.map(s=>`<option value="${s}" ${s===d.stage?'selected':''}>${s}</option>`).join('');
+        const dealScore = computeDealScore(d.arv, d.repairs, d.offer, d.fee, d.comps, d.sqft, state.rulePct);
+        const scoreBadge = dealScore !== null ? (()=>{
+          const tier = dealScoreTier(dealScore);
+          return `<div class="deal-score-badge ${tier.cls}"><span>${tier.label}</span><span class="num">${dealScore}/100</span></div>`;
+        })() : '';
+        const matches = matchBuyersForDeal(d, state.buyers);
+        const matchedBuyersHtml = matches.length ? `
+          <div class="matched-buyers">
+            <div class="mb-label">Matched Buyers</div>
+            ${matches.slice(0,4).map(m=>`<span class="mb-chip ${m.quality}"><span class="tick">${m.quality==='city'?'🎯':'📍'}</span>${escapeHtml(m.buyer.name)}</span>`).join('')}
+          </div>` : `<div class="matched-buyers"><div class="mb-label">Matched Buyers</div><div class="mb-none">No buyers targeting ${escapeHtml(d.market)} yet</div></div>`;
+        return `
+          <div class="card" draggable="true" data-dealid="${d.id}">
+            ${isClosed? '<div class="stamp-closed">FUNDED</div>' : ''}
+            <div class="market-tag">${d.market}</div>${d.saleType? `<span class="type-tag">${d.saleType}</span>` : ''}
+            <div class="addr">${escapeHtml(d.address)}</div>
+            <div class="city">${escapeHtml(d.city||'')}</div>
+            <div class="figs">
+              ARV <b>${fmt(d.arv)}</b><span class="arv-source ${isAuto?'auto':'manual'}">${isAuto?'auto':'manual'}</span><br>
+              Repairs ${fmt(d.repairs)}<br>
+              MAO (${state.rulePct}%) <b>${fmt(mao)}</b><br>
+              Offer ${fmt(d.offer)} · Fee <b>${fmt(d.fee)}</b>${d.listPrice? `<br>List Price ${fmt(d.listPrice)}` : ''}
+            </div>
+            ${scoreBadge}
+            ${matchedBuyersHtml}
+            <textarea class="card-notes" data-notes-id="${d.id}" draggable="false" placeholder="Notes — agent, access, seller info...">${escapeHtml(d.notes||'')}</textarea>
+            <div class="days">added ${d.added} · comps ${compCount}/5</div>
+            <select class="stage-select" data-move-select="${d.id}" draggable="false" style="margin-top:8px;">${stageOptions}</select>
+            <div class="card-actions">
+              <button class="btn small secondary" data-comps="${d.id}" draggable="false">📊 Comps</button>
+              <button class="btn small danger" data-remove="${d.id}" draggable="false">✕</button>
+            </div>
+          </div>`;
+      }).join('') || '<div class="empty-col">— no deals — drop a card here</div>';
+      return `
+        <div class="col" data-stage-col="${stage}">
+          <div class="col-head"><span class="t">${stage}</span><span class="c">${deals.length}</span></div>
+          ${cards}
+        </div>`;
+    }).join('');
+
+    const badgeHtml = BADGE_DEFS.map(b=>{
+      const earned = state.earnedBadges.includes(b.id);
+      return `<div class="badge ${earned?'earned':''}"><span class="icon">${b.icon}</span><span class="name">${b.name}</span></div>`;
+    }).join('');
+
+    const xpGuideHtml = XP_GUIDE.map(g=>`
+      <div class="xp-guide-row"><span>${g.icon} ${g.text}</span><span class="xp-guide-amt">${g.xp}</span></div>
+    `).join('');
+
+    const rankLegendHtml = LEVELS.map((lvl,i)=>`
+      <div class="rank-legend-row ${i===idx?'current':''}">
+        <span class="rank-legend-dot" style="background:${lvl.color};"></span>
+        <span class="rank-legend-icon">${lvl.icon}</span>
+        <span class="rank-legend-title">${lvl.title}</span>
+        <span class="rank-legend-xp">${lvl.min.toLocaleString()} XP</span>
+      </div>
+    `).join('');
+
+    const activityHtml = state.activity.slice(0,12).map(a=>{
+      const d = new Date(a.t);
+      const ts = d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+      return `<div class="activity-item"><span>${escapeHtml(a.text)}</span><span class="t">${ts}</span></div>`;
+    }).join('') || '<div class="empty-col">no activity yet</div>';
+
+    const buyersHtml = (state.buyers && state.buyers.length) ? state.buyers.map(b=>`
+      <div class="buyer-card">
+        <div class="name">${escapeHtml(b.name)}</div>
+        <div class="contact">${escapeHtml(b.phone||'')}${b.phone && b.email? ' · ':''}${escapeHtml(b.email||'')}</div>
+        ${b.buyingPower ? `<div class="power-line">💵 ${fmt(b.buyingPower)} buying power</div>` : ''}
+        <div class="market-pills">${(b.markets||[]).map(m=>`<span class="market-pill">${escapeHtml(m)}</span>`).join('') || '<span class="empty-buyers">no markets set</span>'}</div>
+        ${b.notes? `<div class="notes">${escapeHtml(b.notes)}</div>` : ''}
+        <button class="btn small danger" data-remove-buyer="${b.id}">✕ Remove</button>
+      </div>
+    `).join('') : '<div class="empty-buyers">No buyers yet — add one to start matching deals to buy boxes.</div>';
+
+    app.innerHTML = `
+      <div class="header">
+        <div class="brand">
+          <p class="eyebrow">Wholesaling Command Center</p>
+          <h1>Deal Board</h1>
+          <p class="sub">Lead → Contract → Assignment → Funded. Every stage move earns XP.</p>
+          <div class="xp-track">
+            <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
+            <div class="xp-caption">${state.xp} XP ${next? '· '+ (next.min - state.xp) + ' to ' + next.title : '· Max level'}</div>
+          </div>
+        </div>
+        <div class="stamp-badge" style="border-color:${cur.color}; background:${cur.color}1a;">
+          <div class="lvl-icon">${cur.icon}</div>
+          <div class="lvl-num" style="color:${cur.color};">LV ${idx+1}</div>
+          <div class="lvl-label">${cur.title}</div>
+        </div>
+        <div class="header-stats">
+          <div class="hstat"><div class="n">${state.deals.length}</div><div class="l">Active Deals</div></div>
+          <div class="hstat"><div class="n">${closedDeals.length}</div><div class="l">Closed</div></div>
+          <div class="hstat mono"><div class="n">${fmt(totalFeesClosed)}</div><div class="l">Fees Earned</div></div>
+          <div class="hstat mono"><div class="n">${fmt(pipelineFees)}</div><div class="l">Pipeline Value</div></div>
+        </div>
+      </div>
+
+      ${powerStripHtml}
+
+      <div class="toolbar">
+        <div class="chips">
+          ${markets.map(m=>`<button class="chip ${activeMarket===m?'active':''}" data-market="${m}">${m}</button>`).join('')}
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn secondary" id="addDealBtn">+ New Deal</button>
+        </div>
+      </div>
+
+      <div class="board">${boardHtml}</div>
+
+      <div class="panels" style="grid-template-columns:1fr;">
+        <div class="panel">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:4px;">
+            <div>
+              <h2>Cash Buyers</h2>
+              <p class="desc" style="margin-bottom:0;">Your buyers list, with the market locations each one is targeting.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn secondary" id="importBuyersBtn">⬆ Import CSV/XLSX</button>
+              <button class="btn secondary" id="addBuyerBtn">+ Add Buyer</button>
+            </div>
+          </div>
+          <div class="buyers-grid" style="margin-top:12px;">${buyersHtml}</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="panel">
+          <h2>MAO Calculator</h2>
+          <p class="desc">Max Allowable Offer = (ARV × Rule %) − Repair Estimate − Assignment Fee. Adjust the rule % for your market.</p>
+          <div class="calc-grid">
+            <div class="field"><label>ARV ($)</label><input id="calc_arv" type="number" placeholder="250000"></div>
+            <div class="field"><label>Repairs ($)</label><input id="calc_repairs" type="number" placeholder="30000"></div>
+            <div class="field"><label>Assignment Fee ($)</label><input id="calc_fee" type="number" placeholder="10000"></div>
+            <div class="field"><label>Rule % (default ${state.rulePct})</label><input id="calc_rule" type="number" placeholder="${state.rulePct}"></div>
+          </div>
+          <div class="mao-result">
+            <div><div class="label">Max Allowable Offer</div><div class="val" id="calc_result">$0</div></div>
+            <button class="btn small secondary" id="calc_apply">Use as default rule</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Streak &amp; Achievements</h2>
+          <div class="streak-row">
+            <span class="flame">🔥</span>
+            <div>
+              <div class="hstat"><div class="n">${state.streakCount} day${state.streakCount===1?'':'s'}</div><div class="l">Outreach Streak</div></div>
+            </div>
+            <button class="btn small" id="logCallsBtn" style="margin-left:auto;">Log today's outreach</button>
+          </div>
+          <div class="badge-grid" style="margin-top:16px;">${badgeHtml}</div>
+          <div class="xp-guide">
+            <div class="xp-guide-label">How to Earn XP</div>
+            ${xpGuideHtml}
+          </div>
+          <div class="rank-legend">
+            <div class="rank-legend-label">Rank Legend</div>
+            ${rankLegendHtml}
+          </div>
+        </div>
+      </div>
+
+      <div class="panels" style="grid-template-columns:1fr;">
+        <div class="panel">
+          <h2>Activity Log</h2>
+          <div class="activity-log">${activityHtml}</div>
+        </div>
+      </div>
+
+      <div class="footer-note">saved to this browser · <a id="exportLink">export backup</a> · <a id="importLink">import backup</a> · <a id="resetLink">reset pipeline &amp; XP</a></div>
+      <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+      <input type="file" id="importBuyersFileInput" accept=".csv,.xlsx,.xls,text/csv" style="display:none;">
+    `;
+
+    // wire events
+    document.querySelectorAll('[data-market]').forEach(el=>{
+      el.addEventListener('click', ()=>{ activeMarket = el.getAttribute('data-market'); render(); });
+    });
+    document.querySelectorAll('[data-remove]').forEach(el=>{
+      el.addEventListener('click', ()=> removeDeal(el.getAttribute('data-remove')));
+    });
+    document.querySelectorAll('[data-comps]').forEach(el=>{
+      el.addEventListener('click', ()=> openCompsModal(el.getAttribute('data-comps')));
+    });
+    document.querySelectorAll('[data-move-select]').forEach(el=>{
+      el.addEventListener('change', ()=> moveDealToStage(el.getAttribute('data-move-select'), el.value));
+    });
+    document.querySelectorAll('.card-notes').forEach(el=>{
+      el.addEventListener('input', ()=> updateDealNotes(el.getAttribute('data-notes-id'), el.value));
+      el.addEventListener('mousedown', e=> e.stopPropagation());
+      el.addEventListener('dragstart', e=> e.stopPropagation());
+    });
+    // drag-and-drop: drag a card onto any column to move it forward or back
+    document.querySelectorAll('.card[draggable]').forEach(el=>{
+      el.addEventListener('dragstart', (e)=>{
+        e.dataTransfer.setData('text/plain', el.getAttribute('data-dealid'));
+        e.dataTransfer.effectAllowed = 'move';
+        el.classList.add('dragging');
+      });
+      el.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+    });
+    document.querySelectorAll('[data-stage-col]').forEach(col=>{
+      col.addEventListener('dragover', (e)=>{
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+      col.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const dealId = e.dataTransfer.getData('text/plain');
+        const targetStage = col.getAttribute('data-stage-col');
+        if(dealId && targetStage) moveDealToStage(dealId, targetStage);
+      });
+    });
+    document.querySelectorAll('[data-remove-buyer]').forEach(el=>{
+      el.addEventListener('click', ()=> removeBuyer(el.getAttribute('data-remove-buyer')));
+    });
+    document.getElementById('addBuyerBtn').addEventListener('click', openBuyerModal);
+    document.getElementById('importBuyersBtn').addEventListener('click', ()=> document.getElementById('importBuyersFileInput').click());
+    document.getElementById('importBuyersFileInput').addEventListener('change', importBuyersFile);
+    document.getElementById('addDealBtn').addEventListener('click', openModal);
+    document.getElementById('logCallsBtn').addEventListener('click', logCallsToday);
+    document.getElementById('resetLink').addEventListener('click', resetAll);
+    document.getElementById('exportLink').addEventListener('click', exportBackup);
+    document.getElementById('importLink').addEventListener('click', ()=> document.getElementById('importFileInput').click());
+    document.getElementById('importFileInput').addEventListener('change', importBackup);
+
+    const calcArv = document.getElementById('calc_arv');
+    const calcRep = document.getElementById('calc_repairs');
+    const calcFee = document.getElementById('calc_fee');
+    const calcRule = document.getElementById('calc_rule');
+    const calcResult = document.getElementById('calc_result');
+    function updateCalc(){
+      const rule = Number(calcRule.value) || state.rulePct;
+      calcResult.textContent = fmt(computeMAO(calcArv.value, calcRep.value, calcFee.value, rule));
+    }
+    [calcArv, calcRep, calcFee, calcRule].forEach(el=> el.addEventListener('input', updateCalc));
+    document.getElementById('calc_apply').addEventListener('click', ()=>{
+      const rule = Number(calcRule.value);
+      if(rule && rule>0 && rule<=100){
+        state.rulePct = rule;
+        render();
+        showToast('Default rule % updated to ' + rule + '%');
+        saveState(state);
+      }
+    });
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- New Deal wizard ----------
+  function parseZillowUrl(url){
+    try{
+      const u = new URL(url);
+      if(!/zillow\.com$/i.test(u.hostname.replace(/^www\./i,''))) return null;
+      const match = u.pathname.match(/\/homedetails\/([^\/]+)\//i);
+      if(!match) return null;
+      const parts = decodeURIComponent(match[1]).split('-').filter(Boolean);
+      let zip = '';
+      if(parts.length && /^\d{5}$/.test(parts[parts.length-1])){ zip = parts.pop(); }
+      let state = '';
+      if(parts.length && /^[A-Za-z]{2}$/.test(parts[parts.length-1])){ state = parts.pop().toUpperCase(); }
+      const suffixes = ['st','ave','dr','ln','rd','ct','blvd','way','cir','pl','ter','trl','pkwy','loop','sq','aly','xing'];
+      let splitIdx = -1;
+      for(let i=0;i<parts.length;i++){ if(suffixes.includes(parts[i].toLowerCase())) splitIdx = i; }
+      let street, city;
+      if(splitIdx >= 0 && splitIdx < parts.length-1){
+        street = parts.slice(0, splitIdx+1).join(' ');
+        city = parts.slice(splitIdx+1).join(' ');
+      } else if(parts.length > 1){
+        city = parts[parts.length-1];
+        street = parts.slice(0, parts.length-1).join(' ');
+      } else {
+        street = parts.join(' ');
+        city = '';
+      }
+      return {street, city, state, zip};
+    }catch(e){ return null; }
+  }
+
+  function openModal(){
+    document.getElementById('dealStep1').style.display = '';
+    document.getElementById('dealStep2').style.display = 'none';
+    ['nd_zillow','nd_address','nd_city','nd_listprice','nd_repairs','nd_offer','nd_fee'].forEach(id=> document.getElementById(id).value='');
+    ['nd_repairs','nd_offer','nd_fee'].forEach(id=> document.getElementById(id).removeAttribute('data-user-edited'));
+    document.getElementById('nd_market').value = 'Texas';
+    document.getElementById('nd_parse_status').textContent = '';
+    document.querySelector('input[name="nd_saletype"][value="Cash"]').checked = true;
+    document.getElementById('nd_subject_sqft').value = '';
+    document.getElementById('ndCompsRows').innerHTML = buildCompRowsHtml([0,1,2,3,4].map(()=>({address:'',price:'',sqft:'',date:''})), 0);
+    ndSelectedCat.value = null;
+    document.getElementById('modalBg').classList.add('open');
+  }
+  function closeModal(){
+    document.getElementById('modalBg').classList.remove('open');
+  }
+  document.getElementById('cancelDealBtn').addEventListener('click', closeModal);
+  document.getElementById('modalBg').addEventListener('click', (e)=>{ if(e.target.id==='modalBg') closeModal(); });
+
+  document.getElementById('nd_parse_btn').addEventListener('click', ()=>{
+    const url = document.getElementById('nd_zillow').value.trim();
+    if(!url){ document.getElementById('nd_parse_status').textContent = 'Paste a Zillow link first.'; return; }
+    const parsed = parseZillowUrl(url);
+    if(!parsed || !parsed.street){
+      document.getElementById('nd_parse_status').textContent = "Couldn't parse that link — enter the address manually below.";
+      return;
+    }
+    document.getElementById('nd_address').value = parsed.street;
+    document.getElementById('nd_city').value = parsed.city || '';
+    if(parsed.state && STATE_MARKET[parsed.state]){
+      document.getElementById('nd_market').value = STATE_MARKET[parsed.state];
+    }
+    document.getElementById('nd_parse_status').textContent = 'Parsed from the link — double-check before continuing (this reads the URL, it does not pull live Zillow data).';
+  });
+
+  // Repairs, offer, and fee all auto-suggest once ARV is known — each one only
+  // auto-updates as long as the person hasn't typed their own number into it.
+  function refreshNdPreview(){
+    const subjectSqft = Number(document.getElementById('nd_subject_sqft').value)||0;
+    refreshCompRowWarnings('ndCompsRows', subjectSqft);
+    const comps = readCompsRowsFrom('ndCompsRows');
+    const arv = computeARVFromComps(comps, subjectSqft);
+    const priced = comps.filter(c=>c.price>0).length;
+    const blockedCount = comps.filter(c=>c.price>0 && isCompBlocked(c, subjectSqft)).length;
+    let statusMsg = priced + ' of 5 usable comps';
+    if(blockedCount) statusMsg += ' · ' + blockedCount + ' blocked (over 6 months old or 300+ sqft off)';
+    if(!arv) statusMsg += ' — need 5 usable comps to calculate';
+    document.getElementById('nd_comps_status').textContent = statusMsg;
+
+    const repairsInput = document.getElementById('nd_repairs');
+    const offerInput = document.getElementById('nd_offer');
+    const feeInput = document.getElementById('nd_fee');
+
+    if(arv){
+      document.getElementById('nd_arv_preview').textContent = fmt(arv);
+      if(!repairsInput.getAttribute('data-user-edited')){
+        repairsInput.value = computeAutoRepairs(arv);
+      }
+      const repairs = Number(repairsInput.value)||0;
+      const baseSpread = computeMAO(arv, repairs, 0, state.rulePct); // before the fee is set aside
+      if(!feeInput.getAttribute('data-user-edited')){
+        feeInput.value = computeAutoFee(baseSpread);
+      }
+      const fee = Number(feeInput.value)||0;
+      const mao = computeMAO(arv, repairs, fee, state.rulePct); // final, fee-inclusive
+      document.getElementById('nd_mao_preview').textContent = fmt(mao);
+      if(!offerInput.getAttribute('data-user-edited')){
+        offerInput.value = mao;
+      }
+    } else {
+      document.getElementById('nd_arv_preview').textContent = '$0';
+      document.getElementById('nd_mao_preview').textContent = '$0';
+    }
+
+    const score = computeDealScore(arv, Number(repairsInput.value)||0, Number(offerInput.value)||0, Number(feeInput.value)||0, comps, subjectSqft, state.rulePct);
+    applyScoreDisplay('nd_score_val', 'nd_score_label', score);
+
+    wireRepairCategories('nd_repair_cats', 'nd_subject_sqft', 'nd_repairs', ndSelectedCat, refreshNdPreview);
+  }
+
+  document.getElementById('dealNextBtn').addEventListener('click', ()=>{
+    const addr = document.getElementById('nd_address').value.trim();
+    if(!addr){ showToast('Enter an address first (or parse it from a Zillow link)'); return; }
+    document.getElementById('dealStep1').style.display = 'none';
+    document.getElementById('dealStep2').style.display = '';
+    refreshNdPreview();
+    document.querySelectorAll('#ndCompsRows .comp-price, #ndCompsRows .comp-sqft, #ndCompsRows .comp-date').forEach(el=>{
+      el.removeEventListener('input', refreshNdPreview); el.addEventListener('input', refreshNdPreview);
+    });
+    const sqftInput = document.getElementById('nd_subject_sqft');
+    sqftInput.removeEventListener('input', refreshNdPreview); sqftInput.addEventListener('input', refreshNdPreview);
+    // Mark-as-edited listeners must be attached BEFORE the recalculation listener on the
+    // same field, so the very first keystroke is respected instead of getting overwritten.
+    ['nd_repairs','nd_offer','nd_fee'].forEach(id=>{
+      const el = document.getElementById(id);
+      el.addEventListener('input', function markEdited(){ this.setAttribute('data-user-edited','true'); }, {once:true});
+    });
+    const repairsInput = document.getElementById('nd_repairs');
+    repairsInput.addEventListener('input', function clearCatOnManualEdit(){ ndSelectedCat.value = null; });
+    repairsInput.removeEventListener('input', refreshNdPreview); repairsInput.addEventListener('input', refreshNdPreview);
+    const offerInput = document.getElementById('nd_offer');
+    const feeInput = document.getElementById('nd_fee');
+    offerInput.removeEventListener('input', refreshNdPreview); offerInput.addEventListener('input', refreshNdPreview);
+    feeInput.removeEventListener('input', refreshNdPreview); feeInput.addEventListener('input', refreshNdPreview);
+  });
+
+  document.getElementById('dealBackBtn').addEventListener('click', ()=>{
+    document.getElementById('dealStep2').style.display = 'none';
+    document.getElementById('dealStep1').style.display = '';
+  });
+
+  document.getElementById('dealFinishBtn').addEventListener('click', ()=>{
+    const addr = document.getElementById('nd_address').value.trim();
+    if(!addr){ showToast('Enter an address first'); return; }
+    const comps = readCompsRowsFrom('ndCompsRows');
+    const subjectSqft = Number(document.getElementById('nd_subject_sqft').value)||0;
+    const arv = computeARVFromComps(comps, subjectSqft) || 0;
+    const saleTypeEl = document.querySelector('input[name="nd_saletype"]:checked');
+    const deal = {
+      id: uid(),
+      address: addr,
+      city: document.getElementById('nd_city').value.trim(),
+      market: document.getElementById('nd_market').value,
+      zillowUrl: document.getElementById('nd_zillow').value.trim(),
+      listPrice: Number(document.getElementById('nd_listprice').value)||0,
+      saleType: saleTypeEl ? saleTypeEl.value : 'Cash',
+      arv: arv,
+      repairs: Number(document.getElementById('nd_repairs').value)||0,
+      offer: Number(document.getElementById('nd_offer').value)||0,
+      fee: Number(document.getElementById('nd_fee').value)||0,
+      stage: 'Lead',
+      added: todayStr(),
+      sqft: subjectSqft,
+      comps: comps
+    };
+    closeModal();
+    if(arv){
+      state.deals.push(deal);
+      state.xp += STAGE_XP['Lead'] + 20;
+      logActivity('Added new lead: ' + deal.address + ' (' + deal.market + ')');
+      logActivity(deal.address + ' — ARV auto-calculated from 5 comps: ' + fmt(arv));
+      const matches = matchBuyersForDeal(deal, state.buyers);
+      if(matches.length){
+        logActivity(deal.address + ' matches ' + matches.length + ' buyer(s): ' + matches.map(m=>m.buyer.name).join(', '));
+      }
+      checkStreak();
+      const newBadges = checkBadges();
+      const leveledUp = checkLevelUp();
+      render();
+      let msg = 'Deal added with ARV ' + fmt(arv) + ' · +25 XP';
+      if(matches.length) msg += ' · matches ' + matches.length + ' buyer' + (matches.length===1?'':'s');
+      if(newBadges.length) msg += ' · Badge: '+newBadges[0];
+      if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+      showToast(msg);
+      saveState(state);
+    } else {
+      addDeal(deal);
+      showToast('Deal added — finish 5 comps within 6 months (via the Comps button) to calculate ARV');
+    }
+  });
+
+  let currentCompsDealId = null;
+
+  function compRecencyTag(dateStr){
+    const m = monthsAgo(dateStr);
+    if(m === null) return '<span class="hint" style="color:var(--line);">no date</span>';
+    const label = m < 1 ? 'this month' : Math.round(m) + ' mo ago';
+    const cls = m <= 3 ? 'fresh' : (m <= STALE_MONTHS ? 'ok' : 'blocked');
+    const text = m <= STALE_MONTHS ? label : '🚫 ' + label + ' — too old';
+    return `<span class="recency-tag ${cls}">${text}</span>`;
+  }
+  function compWarningsHtml(c, subjectSqft){
+    const r = compBlockReasons(c, subjectSqft);
+    let html = '';
+    if(r.dateBlocked) html += `<div class="comp-warning">⚠ This comp sold over 6 months ago and can't be used — swap in a more recent sale.</div>`;
+    if(r.sqftBlocked) html += `<div class="comp-warning">⚠ This comp is ${r.sqftDiff} sqft off from the subject (over 300 sqft) and can't be used — pick a closer-sized comp.</div>`;
+    return html;
+  }
+
+  function buildCompRowsHtml(comps, subjectSqft){
+    return comps.map((c,i)=>`
+      <div class="comp-row">
+        <div class="field"><div class="idx">COMP ${i+1}</div><input class="comp-addr" type="text" placeholder="Address" value="${escapeHtml(c.address||'')}"></div>
+        <div class="field"><label>Sale Price ($)</label><input class="comp-price" type="number" placeholder="275000" value="${c.price||''}"></div>
+        <div class="field"><label>Sqft</label><input class="comp-sqft" type="number" placeholder="1780" value="${c.sqft||''}"></div>
+        <div class="field"><label>Sale Date</label><input class="comp-date" type="date" value="${c.date||''}" max="${todayStr()}">${compRecencyTag(c.date)}</div>
+        ${compWarningsHtml(c, subjectSqft)}
+      </div>`).join('');
+  }
+
+  function readCompsRowsFrom(containerId){
+    const rows = Array.from(document.querySelectorAll('#'+containerId+' .comp-row'));
+    return rows.map(r=>({
+      address: r.querySelector('.comp-addr').value.trim(),
+      price: Number(r.querySelector('.comp-price').value)||0,
+      sqft: Number(r.querySelector('.comp-sqft').value)||0,
+      date: r.querySelector('.comp-date').value || ''
+    }));
+  }
+
+  function refreshCompRowWarnings(containerId, subjectSqft){
+    document.querySelectorAll('#'+containerId+' .comp-row').forEach(r=>{
+      const dateInput = r.querySelector('.comp-date');
+      const tag = r.querySelector('.recency-tag, .hint');
+      if(dateInput && tag) tag.outerHTML = compRecencyTag(dateInput.value);
+      r.querySelectorAll('.comp-warning').forEach(w=>w.remove());
+      const c = {
+        date: dateInput ? dateInput.value : '',
+        sqft: Number((r.querySelector('.comp-sqft')||{}).value)||0
+      };
+      const warnHtml = compWarningsHtml(c, subjectSqft);
+      if(warnHtml) r.insertAdjacentHTML('beforeend', warnHtml);
+    });
+  }
+
+  function updateArvPreview(containerId, subjectSqftInputId, statusId, arvId, maoId, repairs, offer, fee, scoreValId, scoreLabelId){
+    const subjectSqft = Number(document.getElementById(subjectSqftInputId).value)||0;
+    refreshCompRowWarnings(containerId, subjectSqft);
+    const comps = readCompsRowsFrom(containerId);
+    const arv = computeARVFromComps(comps, subjectSqft);
+    const priced = comps.filter(c=>c.price>0).length;
+    const blockedCount = comps.filter(c=>c.price>0 && isCompBlocked(c, subjectSqft)).length;
+    let statusMsg = priced + ' of 5 usable comps';
+    if(blockedCount) statusMsg += ' · ' + blockedCount + ' blocked (over 6 months old or 300+ sqft off)';
+    if(!arv) statusMsg += ' — need 5 usable comps to calculate';
+    document.getElementById(statusId).textContent = statusMsg;
+    if(arv){
+      const mao = computeMAO(arv, repairs||0, fee||0, state.rulePct);
+      document.getElementById(arvId).textContent = fmt(arv);
+      document.getElementById(maoId).textContent = fmt(mao);
+    } else {
+      document.getElementById(arvId).textContent = '$0';
+      document.getElementById(maoId).textContent = '$0';
+    }
+    if(scoreValId && scoreLabelId){
+      const score = computeDealScore(arv, repairs||0, offer||0, fee||0, comps, subjectSqft, state.rulePct);
+      applyScoreDisplay(scoreValId, scoreLabelId, score);
+    }
+    return arv;
+  }
+
+  function openCompsModal(dealId){
+    const d = state.deals.find(x=>x.id===dealId);
+    if(!d) return;
+    currentCompsDealId = dealId;
+    document.getElementById('comps_deal_name').textContent = d.address;
+    document.getElementById('comps_subject_sqft').value = d.sqft || '';
+    document.getElementById('comps_repairs').value = d.repairs || '';
+    document.getElementById('comps_repairs').removeAttribute('data-user-edited');
+    document.getElementById('comps_offer').value = d.offer || '';
+    document.getElementById('comps_fee').value = d.fee || '';
+    compsSelectedCat.value = null;
+    const existing = (d.comps && d.comps.length === 5) ? d.comps : [0,1,2,3,4].map(i => (d.comps && d.comps[i]) || {address:'',price:'',sqft:'',date:''});
+    document.getElementById('compsRows').innerHTML = buildCompRowsHtml(existing, d.sqft || 0);
+    const refresh = ()=>{
+      const repairs = Number(document.getElementById('comps_repairs').value)||0;
+      const offer = Number(document.getElementById('comps_offer').value)||0;
+      const fee = Number(document.getElementById('comps_fee').value)||0;
+      updateArvPreview('compsRows','comps_subject_sqft','comps_status','comps_arv_preview','comps_mao_preview', repairs, offer, fee, 'comps_score_val','comps_score_label');
+      wireRepairCategories('comps_repair_cats', 'comps_subject_sqft', 'comps_repairs', compsSelectedCat, refresh);
+    };
+    refresh();
+    document.querySelectorAll('#compsRows .comp-price, #compsRows .comp-sqft, #compsRows .comp-date').forEach(el=> el.addEventListener('input', refresh));
+    document.getElementById('comps_subject_sqft').addEventListener('input', refresh);
+    const repairsInput = document.getElementById('comps_repairs');
+    repairsInput.addEventListener('input', function clearCatOnManualEdit(){ compsSelectedCat.value = null; });
+    repairsInput.addEventListener('input', refresh);
+    document.getElementById('comps_offer').addEventListener('input', refresh);
+    document.getElementById('comps_fee').addEventListener('input', refresh);
+    document.getElementById('compsModalBg').classList.add('open');
+  }
+
+  function closeCompsModal(){
+    document.getElementById('compsModalBg').classList.remove('open');
+    currentCompsDealId = null;
+  }
+  document.getElementById('cancelCompsBtn').addEventListener('click', closeCompsModal);
+  document.getElementById('compsModalBg').addEventListener('click', (e)=>{ if(e.target.id==='compsModalBg') closeCompsModal(); });
+
+  document.getElementById('saveCompsBtn').addEventListener('click', ()=>{
+    const d = state.deals.find(x=>x.id===currentCompsDealId);
+    if(!d) return;
+    const comps = readCompsRowsFrom('compsRows');
+    const subjectSqft = Number(document.getElementById('comps_subject_sqft').value)||0;
+    d.comps = comps;
+    d.sqft = subjectSqft;
+    d.repairs = Number(document.getElementById('comps_repairs').value)||0;
+    d.offer = Number(document.getElementById('comps_offer').value)||0;
+    d.fee = Number(document.getElementById('comps_fee').value)||0;
+    const arv = computeARVFromComps(comps, subjectSqft);
+    if(arv){
+      d.arv = arv;
+      logActivity(d.address + ' — ARV auto-calculated from 5 comps: ' + fmt(arv));
+      state.xp += 20;
+      checkStreak();
+      const newBadges = checkBadges();
+      const leveledUp = checkLevelUp();
+      closeCompsModal();
+      render();
+      let msg = 'ARV updated to ' + fmt(arv) + ' from comps · +20 XP' + (newBadges.length? ' · Badge: '+newBadges[0] : '');
+      if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+      showToast(msg);
+    } else {
+      closeCompsModal();
+      render();
+      showToast('Comps saved — add all 5 sale prices to auto-calculate ARV');
+    }
+    saveState(state);
+  });
+
+  (async function init(){
+    state = await loadState();
+    render();
+  })();
+
+  // ---------- Buyer modal ----------
+  let pendingBuyerMarkets = [];
+
+  function renderBuyerMarketPills(){
+    const wrap = document.getElementById('b_market_pills');
+    wrap.innerHTML = pendingBuyerMarkets.map((m,i)=>
+      `<span class="tag-pill-editable">${escapeHtml(m)}<button type="button" data-remove-pill="${i}">×</button></span>`
+    ).join('');
+    wrap.querySelectorAll('[data-remove-pill]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        pendingBuyerMarkets.splice(Number(btn.getAttribute('data-remove-pill')), 1);
+        renderBuyerMarketPills();
+      });
+    });
+  }
+
+  function addPendingMarket(){
+    const input = document.getElementById('b_market_input');
+    const val = input.value.trim();
+    if(val && !pendingBuyerMarkets.includes(val)){
+      pendingBuyerMarkets.push(val);
+      renderBuyerMarketPills();
+    }
+    input.value = '';
+    input.focus();
+  }
+
+  function openBuyerModal(){
+    pendingBuyerMarkets = [];
+    document.getElementById('b_name').value = '';
+    document.getElementById('b_phone').value = '';
+    document.getElementById('b_email').value = '';
+    document.getElementById('b_power').value = '';
+    document.getElementById('b_notes').value = '';
+    document.getElementById('b_market_input').value = '';
+    renderBuyerMarketPills();
+    document.getElementById('buyerModalBg').classList.add('open');
+  }
+  function closeBuyerModal(){
+    document.getElementById('buyerModalBg').classList.remove('open');
+  }
+
+  document.getElementById('b_market_add').addEventListener('click', addPendingMarket);
+  document.getElementById('b_market_input').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); addPendingMarket(); }
+  });
+  document.getElementById('cancelBuyerBtn').addEventListener('click', closeBuyerModal);
+  document.getElementById('buyerModalBg').addEventListener('click', (e)=>{ if(e.target.id==='buyerModalBg') closeBuyerModal(); });
+
+  document.getElementById('saveBuyerBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('b_name').value.trim();
+    if(!name){ showToast('Enter a buyer name first'); return; }
+    // capture anything left typed in the market input as a final tag
+    const leftover = document.getElementById('b_market_input').value.trim();
+    if(leftover && !pendingBuyerMarkets.includes(leftover)) pendingBuyerMarkets.push(leftover);
+    const buyer = {
+      id: uid(),
+      name,
+      phone: document.getElementById('b_phone').value.trim(),
+      email: document.getElementById('b_email').value.trim(),
+      buyingPower: Number(document.getElementById('b_power').value)||0,
+      notes: document.getElementById('b_notes').value.trim(),
+      markets: pendingBuyerMarkets.slice()
+    };
+    state.buyers.push(buyer);
+    logActivity('Added buyer: ' + buyer.name + (buyer.markets.length? ' — targeting ' + buyer.markets.join(', ') : ''));
+    state.xp += 15;
+    checkStreak();
+    const newBadges = checkBadges();
+
+    // Check if this buyer matches any deal already sitting in the pipeline
+    const matchedDeals = state.deals.filter(d => matchBuyersForDeal(d, [buyer]).length > 0);
+    if(matchedDeals.length){
+      logActivity(buyer.name + ' matches ' + matchedDeals.length + ' deal(s) already on the board: ' + matchedDeals.map(d=>d.address).join(', '));
+    }
+
+    closeBuyerModal();
+    const leveledUp = checkLevelUp();
+    render();
+    let msg = 'Buyer added · +15 XP';
+    if(matchedDeals.length) msg += ' · matches ' + matchedDeals.length + ' deal' + (matchedDeals.length===1?'':'s') + ' on the board';
+    if(newBadges.length) msg += ' · Badge: '+newBadges[0];
+    if(leveledUp) msg += ' · 🎉 LEVEL UP → ' + leveledUp;
+    showToast(msg);
+    saveState(state);
+  });
+})();
+</script>
+</body>
+</html>

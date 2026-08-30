@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCANLINE — Distressed Property Scanner</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg-0:#050708;
+    --bg-1:#0a0f12;
+    --bg-2:#0f1618;
+    --panel:#0c1315;
+    --line:#1c2a2d;
+    --line-soft:#141f22;
+    --amber:#ff8a3d;
+    --amber-dim:#7a4823;
+    --cyan:#3ddbd9;
+    --cyan-dim:#164b4a;
+    --red:#ff4d4d;
+    --green:#3ecf8e;
+    --text-0:#e8f1f0;
+    --text-1:#8fa5a3;
+    --text-2:#546160;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Chakra Petch', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    height:100%;
+    background:var(--bg-0);
+    color:var(--text-0);
+    font-family:var(--body);
+    overflow:hidden;
+  }
+  ::selection{ background:var(--amber); color:#000; }
+
+  /* subtle scanline texture */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    pointer-events:none;
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+    z-index:9999;
+    mix-blend-mode:overlay;
+  }
+
+  .app{ display:flex; flex-direction:column; height:100vh; }
+
+  /* ---------- HEADER ---------- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 18px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, var(--bg-1), var(--bg-0));
+    flex-shrink:0;
+    z-index:20;
+    position:relative;
+  }
+  header::after{
+    content:"";
+    position:absolute; left:0; right:0; bottom:-1px; height:1px;
+    background:linear-gradient(90deg, transparent, var(--amber), transparent);
+    opacity:.5;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .mark{
+    width:30px; height:30px; border:1px solid var(--amber);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; border-radius:3px;
+    color:var(--amber);
+  }
+  .brand .mark .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 8px var(--amber);
+    animation:ping 2.2s ease-in-out infinite;
+  }
+  @keyframes ping{
+    0%,100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:.4; transform:scale(1.6); }
+  }
+  .brand h1{
+    font-family:var(--display); font-weight:700; font-size:18px; letter-spacing:3px;
+    color:var(--text-0);
+  }
+  .brand h1 span{ color:var(--amber); }
+  .brand .tag{
+    font-family:var(--mono); font-size:10px; color:var(--text-2);
+    letter-spacing:1.5px; text-transform:uppercase; margin-top:2px;
+  }
+  .head-actions{ display:flex; gap:10px; align-items:center; }
+  .status-pill{
+    font-family:var(--mono); font-size:11px; padding:5px 10px;
+    border:1px solid var(--line); border-radius:20px; color:var(--text-1);
+    display:flex; align-items:center; gap:6px;
+  }
+  .status-pill .led{ width:7px; height:7px; border-radius:50%; background:var(--text-2); }
+  .status-pill.live .led{ background:var(--green); box-shadow:0 0 6px var(--green); animation:ping 1.4s infinite; }
+  .status-pill.warn .led{ background:var(--amber); box-shadow:0 0 6px var(--amber); }
+
+  button{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.5px;
+    background:transparent; color:var(--text-1);
+    border:1px solid var(--line); border-radius:5px;
+    padding:8px 13px; cursor:pointer; transition:all .15s ease;
+    text-transform:uppercase;
+  }
+  button:hover{ border-color:var(--amber); color:var(--amber); }
+  button:disabled{ opacity:.35; cursor:not-allowed; }
+  button:disabled:hover{ border-color:var(--line); color:var(--text-1); }
+  button.primary{
+    background:var(--amber); color:#1a0e02; border-color:var(--amber); font-weight:700;
+  }
+  button.primary:hover{ background:#ffa15f; color:#1a0e02; }
+  button.danger:hover{ border-color:var(--red); color:var(--red); }
+  button.ghost{ border-color:transparent; }
+  button.ghost:hover{ border-color:var(--line); color:var(--text-0); }
+
+  /* ---------- BODY LAYOUT ---------- */
+  .body-grid{ flex:1; display:grid; grid-template-columns:1fr 400px; min-height:0; }
+
+  .map-col{ position:relative; border-right:1px solid var(--line); }
+  #map{ position:absolute; inset:0; background:var(--bg-1); }
+  .leaflet-container{ background:var(--bg-1); font-family:var(--body); }
+
+  .map-hud{
+    position:absolute; top:14px; left:14px; z-index:500;
+    background:rgba(8,12,13,.88); border:1px solid var(--line);
+    border-radius:8px; padding:12px 14px; max-width:300px;
+    backdrop-filter:blur(6px);
+  }
+  .map-hud h3{
+    font-family:var(--display); font-size:12px; letter-spacing:1.5px; color:var(--amber);
+    text-transform:uppercase; margin-bottom:6px;
+  }
+  .map-hud p{ font-size:12px; color:var(--text-1); line-height:1.5; }
+  .map-hud .step{ display:flex; gap:8px; align-items:flex-start; margin-top:6px; font-size:11.5px; color:var(--text-1); }
+  .map-hud .step b{ color:var(--text-0); }
+
+  .location-search{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:500;
+    width:320px; max-width:calc(100% - 380px);
+  }
+  .location-search input{
+    width:100%; background:rgba(8,12,13,.92); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; color:var(--text-0); font-family:var(--mono); font-size:12px;
+    backdrop-filter:blur(6px);
+  }
+  .location-search input:focus{ outline:none; border-color:var(--amber); }
+  .location-search input::placeholder{ color:var(--text-2); }
+  .loc-results{
+    margin-top:6px; background:rgba(8,12,13,.96); border:1px solid var(--line); border-radius:8px;
+    overflow:hidden; display:none; backdrop-filter:blur(6px);
+  }
+  .loc-results.show{ display:block; }
+  .loc-result-item{
+    padding:9px 12px; font-size:11.5px; color:var(--text-1); cursor:pointer;
+    border-bottom:1px solid var(--line-soft); line-height:1.4;
+  }
+  .loc-result-item:last-child{ border-bottom:none; }
+  .loc-result-item:hover{ background:rgba(255,138,61,.08); color:var(--text-0); }
+  .loc-result-item .sub{ font-size:10px; color:var(--text-2); }
+
+  .map-legend{
+
+    position:absolute; bottom:14px; left:14px; z-index:500;
+    background:rgba(8,12,13,.88); border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; font-family:var(--mono); font-size:10.5px;
+    display:flex; gap:14px; backdrop-filter:blur(6px);
+  }
+  .map-legend .item{ display:flex; align-items:center; gap:6px; color:var(--text-1); }
+  .map-legend .sw{ width:9px; height:9px; border-radius:2px; }
+
+  .scan-progress-bar{
+    position:absolute; top:0; left:0; right:0; height:3px; z-index:600;
+    background:var(--line-soft); overflow:hidden;
+  }
+  .scan-progress-bar .fill{
+    height:100%; width:0%; background:linear-gradient(90deg, var(--amber-dim), var(--amber));
+    transition:width .25s ease; box-shadow:0 0 10px var(--amber);
+  }
+
+  /* ---------- SIDE PANEL ---------- */
+  .side{ display:flex; flex-direction:column; min-height:0; background:var(--panel); }
+
+  .side-tabs{ display:flex; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .side-tabs button{
+    flex:1; border:none; border-radius:0; padding:11px 8px;
+    border-bottom:2px solid transparent; color:var(--text-2);
+  }
+  .side-tabs button.active{ color:var(--amber); border-bottom-color:var(--amber); }
+  .side-tabs button:hover{ color:var(--amber); border-color:transparent transparent var(--amber) transparent; }
+
+  .panel-scroll{ flex:1; overflow-y:auto; padding:16px; min-height:0; }
+  .panel-scroll::-webkit-scrollbar{ width:7px; }
+  .panel-scroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  .panel-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--text-1); margin-bottom:6px;
+  }
+  .field .hint{ font-size:11px; color:var(--text-2); margin-top:5px; line-height:1.5; }
+  .field input[type=text], .field input[type=password], .field input[type=number]{
+    width:100%; background:var(--bg-1); border:1px solid var(--line); border-radius:5px;
+    padding:9px 10px; color:var(--text-0); font-family:var(--mono); font-size:12.5px;
+  }
+  .field input:focus{ outline:none; border-color:var(--amber); }
+  .key-input-row{ display:flex; gap:6px; }
+  .key-input-row .key-input{ flex:1; -webkit-text-security: disc; }
+  .key-input-row .key-input.revealed{ -webkit-text-security: none; }
+  .key-toggle{ padding:9px 12px; font-size:10px; flex-shrink:0; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .field input[type=range]{ width:100%; accent-color:var(--amber); }
+  .range-val{ font-family:var(--mono); color:var(--amber); font-size:12px; }
+
+  .section-title{
+    font-family:var(--display); font-size:12.5px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--text-0); margin:22px 0 12px; display:flex; align-items:center; gap:8px;
+  }
+  .section-title:first-child{ margin-top:0; }
+  .section-title::before{ content:""; width:3px; height:13px; background:var(--amber); display:block; }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line-soft); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-row span{ font-size:12px; color:var(--text-1); }
+  .switch{ position:relative; width:34px; height:19px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch .slider{ position:absolute; inset:0; background:var(--line); border-radius:20px; cursor:pointer; transition:.2s; }
+  .switch .slider::before{ content:""; position:absolute; width:13px; height:13px; left:3px; top:3px; background:var(--text-1); border-radius:50%; transition:.2s; }
+  .switch input:checked + .slider{ background:var(--amber-dim); }
+  .switch input:checked + .slider::before{ transform:translateX(15px); background:var(--amber); }
+
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+  .stat-box{ border:1px solid var(--line); border-radius:6px; padding:10px 12px; }
+  .stat-box .num{ font-family:var(--mono); font-size:22px; color:var(--amber); font-weight:600; line-height:1; }
+  .stat-box .lbl{ font-size:10px; color:var(--text-2); text-transform:uppercase; letter-spacing:1px; margin-top:5px; }
+
+  .queue-note{
+    font-family:var(--mono); font-size:11px; color:var(--text-1);
+    border:1px dashed var(--line); border-radius:6px; padding:10px 12px; line-height:1.6;
+  }
+
+  /* results list */
+  .filter-bar{ display:flex; gap:8px; margin-bottom:12px; align-items:center; }
+  .filter-bar select{
+    background:var(--bg-1); border:1px solid var(--line); color:var(--text-0);
+    font-family:var(--mono); font-size:11px; padding:7px 8px; border-radius:5px; flex:1;
+  }
+
+  .result-card{
+    border:1px solid var(--line); border-radius:8px; margin-bottom:10px; overflow:hidden;
+    background:var(--bg-1); transition:border-color .15s;
+  }
+  .result-card:hover{ border-color:var(--text-2); }
+  .result-top{ display:flex; }
+  .result-thumb{ width:96px; height:96px; object-fit:cover; flex-shrink:0; background:var(--bg-2); display:block; }
+  .result-info{ flex:1; padding:9px 10px; min-width:0; }
+  .result-score-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .score-chip{
+    font-family:var(--mono); font-weight:700; font-size:13px; padding:2px 8px; border-radius:4px;
+  }
+  .score-chip.s-low{ background:rgba(62,207,142,.12); color:var(--green); }
+  .score-chip.s-mid{ background:rgba(255,138,61,.14); color:var(--amber); }
+  .score-chip.s-high{ background:rgba(255,77,77,.15); color:var(--red); }
+  .result-coords{ font-family:var(--mono); font-size:9.5px; color:var(--text-2); }
+  .result-addr{ font-size:11.5px; color:var(--text-0); margin-bottom:3px; line-height:1.3; }
+  .result-signals{ font-size:10.5px; color:var(--text-1); line-height:1.4; }
+  .result-actions{ display:flex; border-top:1px solid var(--line-soft); }
+  .result-actions button{ flex:1; border:none; border-radius:0; border-right:1px solid var(--line-soft); font-size:10px; padding:6px; }
+  .result-actions button:last-child{ border-right:none; }
+
+  .empty-state{ text-align:center; padding:40px 10px; color:var(--text-2); }
+  .empty-state .glyph{ font-size:26px; margin-bottom:10px; opacity:.5; }
+  .empty-state p{ font-size:12px; line-height:1.6; max-width:240px; margin:0 auto; }
+
+  /* footer scan controls */
+  .side-footer{ border-top:1px solid var(--line); padding:14px 16px; flex-shrink:0; background:var(--bg-1); }
+  .footer-row{ display:flex; gap:8px; }
+  .footer-row button{ flex:1; padding:11px; }
+  .scan-status-line{
+    font-family:var(--mono); font-size:10.5px; color:var(--text-1);
+    margin-bottom:8px; display:flex; justify-content:space-between;
+  }
+  .scan-status-line b{ color:var(--amber); }
+
+  /* leaflet overrides */
+  .leaflet-bar a{ background:var(--bg-1) !important; color:var(--text-0) !important; border-color:var(--line) !important; }
+  .leaflet-control-attribution{ background:rgba(5,7,8,.7) !important; color:var(--text-2) !important; font-size:9px !important; }
+  .leaflet-control-attribution a{ color:var(--text-1) !important; }
+
+  .scan-marker{
+    width:9px; height:9px; border-radius:50%; background:var(--cyan);
+    box-shadow:0 0 6px var(--cyan); border:1px solid #04211f;
+  }
+  .scan-marker.done-low{ background:var(--green); box-shadow:0 0 6px var(--green); }
+  .scan-marker.done-mid{ background:var(--amber); box-shadow:0 0 6px var(--amber); }
+  .scan-marker.done-high{ background:var(--red); box-shadow:0 0 8px var(--red); width:12px; height:12px; }
+  .scan-marker.pending{ background:#2a3a3d; box-shadow:none; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--bg-1); border:1px solid var(--amber); color:var(--text-0);
+    font-family:var(--mono); font-size:12px; padding:10px 18px; border-radius:6px;
+    z-index:9998; box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+
+  @media (max-width: 860px){
+    .body-grid{ grid-template-columns:1fr; grid-template-rows:1fr 1fr; }
+    .map-col{ border-right:none; border-bottom:1px solid var(--line); }
+    .location-search{ width:70%; max-width:70%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <div class="mark"><div class="dot"></div></div>
+      <div>
+        <h1>SCAN<span>LINE</span></h1>
+        <div class="tag">Distress Signal Detection</div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <div class="status-pill" id="statusPill"><div class="led"></div><span id="statusText">Idle</span></div>
+      <button class="ghost" id="helpBtn">Guide</button>
+    </div>
+  </header>
+
+  <div class="body-grid">
+
+    <div class="map-col">
+      <div class="scan-progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+      <div id="map"></div>
+
+      <div class="map-hud">
+        <h3>Field Instructions</h3>
+        <div class="step"><b>1.</b> Click <b>Draw Area</b> (top-right), then click points on the map to trace the neighborhood. Double-click, or click Draw Area again, to close the shape.</div>
+        <div class="step"><b>2.</b> Scanline pulls every road inside it and drops scan points along the curb.</div>
+        <div class="step"><b>3.</b> Run the scan — each point captures a street-level image and gets scored for distress.</div>
+      </div>
+
+      <button id="drawToggleBtn" class="primary" style="position:absolute; top:14px; right:14px; z-index:500;">Draw Area</button>
+
+      <div class="location-search" id="locationSearch">
+        <input type="text" id="locSearchInput" placeholder="Search a city, address, or zip…" autocomplete="off">
+        <div class="loc-results" id="locResults"></div>
+      </div>
+
+      <div class="map-legend">
+        <div class="item"><span class="sw" style="background:var(--cyan)"></span>Pending point</div>
+        <div class="item"><span class="sw" style="background:var(--green)"></span>Low signal</div>
+        <div class="item"><span class="sw" style="background:var(--amber)"></span>Moderate</div>
+        <div class="item"><span class="sw" style="background:var(--red)"></span>High distress</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="side-tabs">
+        <button class="tab-btn active" data-tab="setup">Setup</button>
+        <button class="tab-btn" data-tab="results">Results <span id="resultsCount"></span></button>
+      </div>
+
+      <div class="panel-scroll" id="tab-setup">
+        <div class="section-title">API Access</div>
+        <div class="field">
+          <label>Google Maps API Key</label>
+          <div class="key-input-row">
+            <input type="text" id="gmapsKey" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="key-input">
+            <button type="button" class="key-toggle" data-target="gmapsKey">Hide</button>
+          </div>
+          <div class="hint">Needs the <b>Street View Static API</b> enabled (Maps Static API optional) on a billed Google Cloud project. Stored only in this browser tab — never saved or sent anywhere else. If a scan fails on billing, double-check this is the exact key from the same Cloud project where you enabled billing.</div>
+        </div>
+        <div class="field">
+          <label>Anthropic API Key</label>
+          <div class="key-input-row">
+            <input type="text" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="key-input">
+            <button type="button" class="key-toggle" data-target="anthropicKey">Hide</button>
+          </div>
+          <div class="hint">Powers the distress scoring. Get one at <b>console.anthropic.com</b> → API Keys. Only required once you host this file outside Claude.ai (e.g. tiiny.site) — while previewing it directly in a Claude.ai chat, you can leave this blank and Claude.ai authorizes the scoring call for you.</div>
+        </div>
+
+        <div class="section-title">Scan Parameters</div>
+        <div class="field">
+          <label>Point spacing along road: <span class="range-val" id="spacingVal">35m</span></label>
+          <input type="range" id="spacing" min="15" max="100" step="5" value="35">
+          <div class="hint">Tighter spacing catches more properties but burns more API calls and time.</div>
+        </div>
+        <div class="field">
+          <label>Max points per scan: <span class="range-val" id="maxPtsVal">150</span></label>
+          <input type="range" id="maxPts" min="20" max="400" step="10" value="150">
+        </div>
+        <div class="field">
+          <label>Camera side</label>
+          <div class="filter-bar" style="margin-bottom:0">
+            <select id="cameraSide">
+              <option value="right">Right of travel</option>
+              <option value="left">Left of travel</option>
+              <option value="both">Both sides (2x calls)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-title">Auto Address Lookup</div>
+        <div class="toggle-row">
+          <span>Reverse-geocode flagged properties</span>
+          <label class="switch"><input type="checkbox" id="autoGeocode" checked><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Flag threshold: <span class="range-val" id="threshVal">6</span> / 10</label>
+          <input type="range" id="threshold" min="1" max="10" step="1" value="6">
+          <div class="hint">Only properties scoring at or above this get an automatic address lookup (via OpenStreetMap) after the scan, so you're not burning geocode calls on every point.</div>
+        </div>
+
+        <div class="section-title">Target Area</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num" id="statPoints">0</div><div class="lbl">Scan points</div></div>
+          <div class="stat-box"><div class="num" id="statRoads">0</div><div class="lbl">Road segments</div></div>
+        </div>
+        <div class="queue-note" id="areaNote">No area drawn yet. Use the polygon tool on the map to select a neighborhood.</div>
+      </div>
+
+      <div class="panel-scroll" id="tab-results" style="display:none">
+        <div class="filter-bar">
+          <select id="sortSelect">
+            <option value="score-desc">Highest distress first</option>
+            <option value="score-asc">Lowest distress first</option>
+            <option value="recent">Scan order</option>
+          </select>
+          <select id="filterSelect">
+            <option value="0">All results</option>
+            <option value="4">Score 4+</option>
+            <option value="6">Score 6+</option>
+            <option value="8">Score 8+</option>
+          </select>
+        </div>
+        <div id="resultsList">
+          <div class="empty-state">
+            <div class="glyph">◎</div>
+            <p>No scans yet. Draw an area and run a scan to start populating flagged properties here.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-footer">
+        <div class="scan-status-line">
+          <span id="scanStatusMsg">Awaiting target area</span>
+          <span><b id="scanCounter">0</b>/<span id="scanTotal">0</span></span>
+        </div>
+        <div class="footer-row">
+          <button id="clearBtn">Clear Area</button>
+          <button id="exportBtn" disabled>Export CSV</button>
+          <button class="primary" id="scanBtn" disabled>Start Scan</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+
+<script>
+(function(){
+
+  /* ---------------- MAP SETUP ---------------- */
+  const map = L.map('map', { zoomControl:false, minZoom:3 }).setView([32.7767, -96.7970], 12); // Dallas-ish default
+  L.control.zoom({ position:'bottomright' }).addTo(map);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    subdomains: 'abc', maxZoom: 19
+  }).addTo(map);
+  // dark-mode the free OSM tiles with a CSS filter so we don't depend on a keyed basemap provider
+  const tilePaneStyle = document.createElement('style');
+  tilePaneStyle.textContent = '.leaflet-tile-pane{ filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.7); }';
+  document.head.appendChild(tilePaneStyle);
+
+  // try to center on the user's rough location if available
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14),
+      () => {}, { timeout: 2500 }
+    );
+  }
+
+  const drawnItems = new L.FeatureGroup().addTo(map);
+  const pointsLayer = new L.FeatureGroup().addTo(map);
+  const tempLayer = new L.FeatureGroup().addTo(map);
+
+  let currentPolygon = null;
+  let scanPoints = [];   // {lat,lng,heading,roadName}
+  let results = [];      // scored results
+  let scanning = false;
+  let cancelRequested = false;
+
+  /* ---- native polygon drawing (no external plugin) ---- */
+  let isDrawing = false;
+  let draftLatLngs = [];
+
+  const drawBtn = document.getElementById('drawToggleBtn');
+  drawBtn.onclick = () => { isDrawing ? finishDrawing(draftLatLngs.length >= 3) : startDrawing(); };
+
+  function startDrawing() {
+    drawnItems.clearLayers(); pointsLayer.clearLayers(); tempLayer.clearLayers();
+    scanPoints = []; results = []; renderResults();
+    currentPolygon = null;
+    document.getElementById('statPoints').textContent = '0';
+    document.getElementById('statRoads').textContent = '0';
+    document.getElementById('scanBtn').disabled = true;
+
+    isDrawing = true; draftLatLngs = [];
+    map.doubleClickZoom.disable();
+    drawBtn.textContent = 'Finish Shape';
+    document.getElementById('areaNote').textContent = 'Click points to trace the area. Double-click, or hit Finish Shape, to close it.';
+    setStatus('warn', 'Drawing…');
+  }
+
+  function finishDrawing(commit) {
+    isDrawing = false;
+    map.doubleClickZoom.enable();
+    drawBtn.textContent = 'Draw Area';
+    tempLayer.clearLayers();
+
+    if (commit && draftLatLngs.length >= 3) {
+      const poly = L.polygon(draftLatLngs, { color:'#ff8a3d', weight:2, fillColor:'#ff8a3d', fillOpacity:0.08 }).addTo(drawnItems);
+      const coordsClosed = draftLatLngs.map(ll => [ll.lng, ll.lat]);
+      coordsClosed.push(coordsClosed[0]);
+      currentPolygon = { type:'Feature', properties:{}, geometry:{ type:'Polygon', coordinates:[coordsClosed] } };
+      buildScanPoints();
+    } else {
+      document.getElementById('areaNote').textContent = 'No area drawn yet. Click Draw Area, then click at least 3 points on the map.';
+      setStatus('idle', 'Idle');
+    }
+    draftLatLngs = [];
+  }
+
+  map.on('click', (e) => {
+    if (!isDrawing) return;
+    draftLatLngs.push(e.latlng);
+    redrawDraft();
+  });
+  map.on('dblclick', (e) => {
+    if (!isDrawing) return;
+    finishDrawing(draftLatLngs.length >= 3);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isDrawing) finishDrawing(false);
+  });
+
+  function redrawDraft() {
+    tempLayer.clearLayers();
+    draftLatLngs.forEach(ll => {
+      L.circleMarker(ll, { radius:4, color:'#ff8a3d', weight:1, fillColor:'#ff8a3d', fillOpacity:1 }).addTo(tempLayer);
+    });
+    if (draftLatLngs.length > 1) {
+      L.polyline(draftLatLngs, { color:'#ff8a3d', weight:2, dashArray:'4,4' }).addTo(tempLayer);
+    }
+  }
+
+  document.getElementById('clearBtn').onclick = () => {
+    drawnItems.clearLayers();
+    pointsLayer.clearLayers();
+    currentPolygon = null;
+    scanPoints = [];
+    results = [];
+    renderResults();
+    document.getElementById('statPoints').textContent = '0';
+    document.getElementById('statRoads').textContent = '0';
+    document.getElementById('areaNote').textContent = 'No area drawn yet. Use the polygon tool on the map to select a neighborhood.';
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('exportBtn').disabled = true;
+    setStatus('idle', 'Idle');
+    setScanMsg('Awaiting target area');
+  };
+
+  /* ---------------- OVERPASS: PULL ROADS ---------------- */
+  async function buildScanPoints() {
+    if (!currentPolygon) return;
+    setStatus('warn', 'Fetching roads…');
+    document.getElementById('areaNote').textContent = 'Pulling road network from OpenStreetMap…';
+
+    const bbox = turf.bbox(currentPolygon); // [minX,minY,maxX,maxY]
+    const query = `[out:json][timeout:25];way["highway"~"^(residential|living_street|unclassified|tertiary|secondary|primary|service)$"](${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]});out geom;`;
+
+    const endpoints = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.openstreetmap.ru/api/interpreter'
+    ];
+
+    let data = null, lastErr = null;
+    for (const endpoint of endpoints) {
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST', body: 'data=' + encodeURIComponent(query)
+        });
+        if (!resp.ok) throw new Error(`${endpoint} responded ${resp.status}`);
+        data = await resp.json();
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.warn('Overpass endpoint failed:', endpoint, err);
+      }
+    }
+
+    if (!data) {
+      console.error(lastErr);
+      document.getElementById('areaNote').textContent = 'Could not reach any road-network mirror (' + (lastErr ? lastErr.message : 'unknown error') + '). This can happen if a browser privacy setting is blocking the request — try disabling Shields for this page, or check your internet connection, then redraw the area.';
+      setStatus('idle', 'Idle');
+      return;
+    }
+
+    try {
+      const ways = (data.elements || []).filter(el => el.type === 'way' && el.geometry && el.geometry.length > 1);
+
+      const spacing = parseInt(document.getElementById('spacing').value, 10);
+      const maxPts = parseInt(document.getElementById('maxPts').value, 10);
+      const side = document.getElementById('cameraSide').value;
+
+      let pts = [];
+      for (const way of ways) {
+        const coords = way.geometry.map(g => [g.lon, g.lat]);
+        // clip to only coords inside polygon (simple filter, good enough for sampling density)
+        const line = turf.lineString(coords);
+        let dist;
+        try { dist = turf.length(line, { units: 'meters' }); } catch(e){ continue; }
+        if (!dist || dist < 1) continue;
+        const steps = Math.max(1, Math.floor(dist / spacing));
+        for (let i = 0; i <= steps; i++) {
+          const along = turf.along(line, (i * spacing), { units: 'meters' });
+          const [lng, lat] = along.geometry.coordinates;
+          if (!turf.booleanPointInPolygon(along, currentPolygon)) continue;
+
+          // bearing for heading calc: look at a point slightly ahead
+          const aheadDist = Math.min(dist, (i * spacing) + 5);
+          const ahead = turf.along(line, aheadDist, { units: 'meters' });
+          const bearing = turf.bearing(along, ahead);
+          const roadName = way.tags && way.tags.name ? way.tags.name : 'Unnamed road';
+
+          if (side === 'both') {
+            pts.push({ lat, lng, heading: (bearing + 90 + 360) % 360, roadName });
+            pts.push({ lat, lng, heading: (bearing - 90 + 360) % 360, roadName });
+          } else if (side === 'left') {
+            pts.push({ lat, lng, heading: (bearing - 90 + 360) % 360, roadName });
+          } else {
+            pts.push({ lat, lng, heading: (bearing + 90 + 360) % 360, roadName });
+          }
+        }
+      }
+
+      // dedupe points that are extremely close (avoid double sampling at intersections)
+      pts = dedupePoints(pts, spacing * 0.5);
+
+      if (pts.length > maxPts) {
+        // evenly sample down to max
+        const step = pts.length / maxPts;
+        const sampled = [];
+        for (let i = 0; i < maxPts; i++) sampled.push(pts[Math.floor(i * step)]);
+        pts = sampled;
+      }
+
+      scanPoints = pts;
+      pointsLayer.clearLayers();
+      scanPoints.forEach(p => {
+        const marker = L.circleMarker([p.lat, p.lng], {
+          radius: 4, className: 'scan-marker pending-marker',
+          color: '#0d2a29', weight: 1, fillColor: '#2a3a3d', fillOpacity: 1
+        }).addTo(pointsLayer);
+        p._marker = marker;
+      });
+
+      document.getElementById('statPoints').textContent = scanPoints.length;
+      document.getElementById('statRoads').textContent = ways.length;
+      document.getElementById('areaNote').textContent = scanPoints.length
+        ? `${scanPoints.length} scan points ready across ${ways.length} road segments. Add your API key and hit Start Scan.`
+        : 'No drivable roads found inside this polygon. Try drawing a larger area.';
+      document.getElementById('scanBtn').disabled = scanPoints.length === 0;
+      setStatus('idle', 'Ready');
+    } catch (err) {
+      console.error(err);
+      document.getElementById('areaNote').textContent = 'Could not reach the road-network service. Try again in a moment, or draw a smaller area.';
+      setStatus('idle', 'Idle');
+    }
+  }
+
+  function dedupePoints(pts, minDist) {
+    const kept = [];
+    for (const p of pts) {
+      let tooClose = false;
+      for (const k of kept) {
+        const d = turf.distance([p.lng, p.lat], [k.lng, k.lat], { units: 'meters' });
+        if (d < minDist && Math.abs(p.heading - k.heading) < 45) { tooClose = true; break; }
+      }
+      if (!tooClose) kept.push(p);
+    }
+    return kept;
+  }
+
+  /* ---------------- SCAN EXECUTION ---------------- */
+  document.getElementById('scanBtn').onclick = () => {
+    const key = document.getElementById('gmapsKey').value.trim();
+    const aKey = document.getElementById('anthropicKey').value.trim();
+    if (!key) { toast('Add your Google Maps API key first.'); return; }
+    if (!scanPoints.length) { toast('Draw an area with roads in it first.'); return; }
+    runScan(key, aKey);
+  };
+
+  async function runScan(apiKey, anthropicKey) {
+    if (scanning) return;
+    scanning = true;
+    cancelRequested = false;
+    results = [];
+    renderResults();
+    document.getElementById('scanBtn').textContent = 'Cancel Scan';
+    document.getElementById('scanBtn').classList.add('danger');
+    document.getElementById('scanBtn').onclick = () => { cancelRequested = true; };
+    document.getElementById('exportBtn').disabled = true;
+    setStatus('live', 'Scanning');
+    document.getElementById('scanTotal').textContent = scanPoints.length;
+    document.getElementById('scanCounter').textContent = '0';
+    document.getElementById('progressBar').style.opacity = 1;
+
+    let completed = 0;
+    let consecutiveFailures = 0;
+    let lastFailMsg = '';
+    let scoredCount = 0, noImageryCount = 0;
+    const CONCURRENCY = 3;
+    let cursor = 0;
+
+    async function worker() {
+      while (cursor < scanPoints.length && !cancelRequested) {
+        const idx = cursor++;
+        const pt = scanPoints[idx];
+        try {
+          setScanMsg('Capturing ' + (pt.roadName || 'road') + '…');
+          const outcome = await processPoint(pt, apiKey, anthropicKey);
+          if (outcome === 'scored') scoredCount++;
+          else if (outcome === 'no_imagery') noImageryCount++;
+          consecutiveFailures = 0;
+        } catch (err) {
+          console.warn('Point failed', pt, err);
+          lastFailMsg = err && err.message ? err.message : String(err);
+          consecutiveFailures++;
+          if (consecutiveFailures >= 6) {
+            cancelRequested = true;
+            toast('Scan stopped — repeated failures: ' + lastFailMsg.slice(0, 120));
+          }
+        }
+        completed++;
+        document.getElementById('scanCounter').textContent = completed;
+        const pct = Math.round((completed / scanPoints.length) * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+      }
+    }
+
+    const workers = [];
+    for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
+    await Promise.all(workers);
+
+    scanning = false;
+    document.getElementById('scanBtn').textContent = 'Start Scan';
+    document.getElementById('scanBtn').classList.remove('danger');
+    document.getElementById('scanBtn').onclick = () => {
+      const key = document.getElementById('gmapsKey').value.trim();
+      const aKey = document.getElementById('anthropicKey').value.trim();
+      if (!key) { toast('Add your Google Maps API key first.'); return; }
+      runScan(key, aKey);
+    };
+    setStatus('idle', cancelRequested ? 'Cancelled' : 'Scan complete');
+    setScanMsg(
+      cancelRequested
+        ? (lastFailMsg ? `Scan stopped — ${lastFailMsg.slice(0,140)}` : 'Scan cancelled')
+        : results.length
+          ? `Scan complete — ${results.length} scored (${noImageryCount} had no Street View coverage)`
+          : `Scan complete — 0 scored, ${noImageryCount}/${scanPoints.length} points had no Street View imagery at all. ${lastFailMsg ? 'Last error: ' + lastFailMsg.slice(0,120) : (noImageryCount === scanPoints.length ? 'This area has no Street View coverage — try a more populated area.' : 'Check browser console (F12).')}`
+    );
+    document.getElementById('exportBtn').disabled = results.length === 0;
+    document.getElementById('progressFill').style.width = '0%';
+
+    document.querySelector('.tab-btn[data-tab="results"]').click();
+
+    // background: reverse-geocode flagged properties, sequential + polite delay
+    if (document.getElementById('autoGeocode').checked) {
+      const thresh = parseInt(document.getElementById('threshold').value, 10);
+      const flagged = results.filter(r => r.score >= thresh && !r.address);
+      for (const r of flagged) {
+        if (cancelRequested) break;
+        await geocodeResult(r);
+        await sleep(1100);
+      }
+    }
+  }
+
+  async function processPoint(pt, apiKey, anthropicKey) {
+    // 1. confirm imagery exists
+    const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${pt.lat},${pt.lng}&key=${apiKey}`;
+    const metaResp = await fetch(metaUrl);
+    const meta = await metaResp.json();
+    if (meta.status === 'ZERO_RESULTS') { pt._marker && pt._marker.setStyle({ fillColor:'#2a2a2a' }); return 'no_imagery'; }
+    if (meta.status !== 'OK') {
+      throw new Error(`Street View metadata ${meta.status}${meta.error_message ? ': ' + meta.error_message : ''}`);
+    }
+
+    const svUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${pt.lat},${pt.lng}&heading=${Math.round(pt.heading)}&pitch=0&fov=78&key=${apiKey}`;
+    const imgResp = await fetch(svUrl);
+    if (!imgResp.ok) throw new Error('Street View fetch failed');
+    const blob = await imgResp.blob();
+    const base64 = await blobToBase64(blob);
+
+    const scoreData = await scoreImage(base64, anthropicKey);
+
+    const result = {
+      lat: pt.lat, lng: pt.lng, heading: Math.round(pt.heading), roadName: pt.roadName,
+      score: scoreData.distress_score, signals: scoreData.signals || [], notes: scoreData.notes || '',
+      thumb: 'data:image/jpeg;base64,' + base64,
+      address: null, id: 'r' + Math.random().toString(36).slice(2)
+    };
+    results.push(result);
+
+    const tier = tierClass(result.score);
+    if (pt._marker) {
+      pt._marker.setStyle({ fillColor: tierColor(result.score), radius: result.score >= 7 ? 6 : 4.5 });
+      pt._marker.bindPopup(popupHtml(result));
+    }
+    renderResults();
+    return 'scored';
+  }
+
+  function tierClass(score){ return score >= 7 ? 's-high' : score >= 4 ? 's-mid' : 's-low'; }
+  function tierColor(score){ return score >= 7 ? '#ff4d4d' : score >= 4 ? '#ff8a3d' : '#3ecf8e'; }
+
+  function popupHtml(r){
+    return `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;max-width:180px">
+      <img src="${r.thumb}" style="width:100%;border-radius:4px;margin-bottom:6px"/>
+      <b>Score: ${r.score}/10</b><br/>${(r.signals||[]).slice(0,3).join(', ')}
+    </div>`;
+  }
+
+  async function scoreImage(base64, anthropicKey) {
+    const prompt = `You are analyzing a Google Street View image for a real-estate wholesaler scouting distressed properties. Look at the building(s) visible in the frame and rate visible physical distress signals ONLY — things like boarded/broken windows, missing or damaged roof shingles, peeling/missing siding or paint, overgrown or dead landscaping, visible trash/debris/junk in the yard, tarps, collapsed structures, boarded doors, foreclosure/auction signage, or an abandoned/vacant appearance. Do not guess at things you cannot see. If no building is clearly visible or the image is inconclusive, score low and say so.
+
+Respond with ONLY raw JSON, no markdown fences, no commentary, matching exactly this shape:
+{"distress_score": <integer 0-10>, "signals": [<short strings, max 5>], "notes": "<one short sentence>"}
+
+0 = pristine / well-maintained. 10 = severely distressed / clearly vacant or condemned.`;
+
+    const body = {
+      model: "claude-sonnet-5",
+      max_tokens: 400,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+          { type: "text", text: prompt }
+        ]
+      }]
+    };
+
+    const headers = { "Content-Type": "application/json" };
+    if (anthropicKey) {
+      headers["x-api-key"] = anthropicKey;
+      headers["anthropic-version"] = "2023-06-01";
+      headers["anthropic-dangerous-direct-browser-access"] = "true";
+    }
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+    const raw = await resp.text();
+    if (!resp.ok) {
+      throw new Error(`Anthropic API ${resp.status}: ${raw.slice(0,220)}`);
+    }
+    let data;
+    try { data = JSON.parse(raw); } catch(e) { throw new Error('Non-JSON API response: ' + raw.slice(0,220)); }
+
+    if (data.type === 'error') {
+      throw new Error('Anthropic error: ' + (data.error && data.error.message ? data.error.message : raw.slice(0,220)));
+    }
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if (!textBlock) throw new Error('No text content in response: ' + raw.slice(0,220));
+
+    let clean = textBlock.text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch (e) {
+      // model may have wrapped the JSON in extra prose despite instructions — try to pull the object out
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (match) {
+        try { parsed = JSON.parse(match[0]); } catch (e2) { /* fall through */ }
+      }
+      if (!parsed) throw new Error('Could not parse score JSON: ' + textBlock.text.slice(0,220));
+    }
+
+    const scoreNum = Number(parsed.distress_score);
+    if (Number.isNaN(scoreNum)) throw new Error('Response missing a valid distress_score: ' + clean.slice(0,220));
+    parsed.distress_score = scoreNum;
+    return parsed;
+  }
+
+  async function geocodeResult(r) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${r.lat}&lon=${r.lng}&format=json&zoom=18`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      r.address = data.display_name ? data.display_name.split(',').slice(0,4).join(',') : null;
+      renderResults();
+    } catch (e) { /* best effort */ }
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  /* ---------------- RESULTS PANEL ---------------- */
+  function renderResults() {
+    document.getElementById('resultsCount').textContent = results.length ? `(${results.length})` : '';
+    const list = document.getElementById('resultsList');
+    const sortMode = document.getElementById('sortSelect').value;
+    const filterMin = parseInt(document.getElementById('filterSelect').value, 10);
+
+    let shown = results.filter(r => r.score >= filterMin);
+    if (sortMode === 'score-desc') shown = shown.slice().sort((a,b) => b.score - a.score);
+    else if (sortMode === 'score-asc') shown = shown.slice().sort((a,b) => a.score - b.score);
+
+    if (!shown.length) {
+      list.innerHTML = `<div class="empty-state"><div class="glyph">◎</div><p>${results.length ? 'No results match this filter.' : 'No scans yet. Draw an area and run a scan to start populating flagged properties here.'}</p></div>`;
+      return;
+    }
+
+    list.innerHTML = shown.map(r => `
+      <div class="result-card">
+        <div class="result-top">
+          <img class="result-thumb" src="${r.thumb}" loading="lazy">
+          <div class="result-info">
+            <div class="result-score-row">
+              <span class="score-chip ${tierClass(r.score)}">${r.score}/10</span>
+              <span class="result-coords">${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}</span>
+            </div>
+            <div class="result-addr">${r.address ? r.address : (r.roadName || 'Address not looked up')}</div>
+            <div class="result-signals">${(r.signals||[]).join(' · ') || r.notes || ''}</div>
+          </div>
+        </div>
+        <div class="result-actions">
+          <button onclick="window.__scanline.flyTo('${r.id}')">Locate</button>
+          <button onclick="window.__scanline.streetView('${r.id}')">Street View</button>
+          <button onclick="window.__scanline.lookupAddr('${r.id}')">${r.address ? 'Re-lookup' : 'Get Address'}</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('sortSelect').onchange = renderResults;
+  document.getElementById('filterSelect').onchange = renderResults;
+
+  window.__scanline = {
+    flyTo(id){ const r = results.find(x=>x.id===id); if (r) map.setView([r.lat, r.lng], 19); },
+    streetView(id){ const r = results.find(x=>x.id===id); if (r) window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${r.lat},${r.lng}&heading=${r.heading}`, '_blank'); },
+    lookupAddr(id){ const r = results.find(x=>x.id===id); if (r) geocodeResult(r); }
+  };
+
+  /* ---------------- EXPORT ---------------- */
+  document.getElementById('exportBtn').onclick = () => {
+    if (!results.length) return;
+    const rows = [['score','lat','lng','road','address','signals','notes','street_view_link','google_maps_link']];
+    results.slice().sort((a,b)=>b.score-a.score).forEach(r => {
+      rows.push([
+        r.score, r.lat, r.lng, r.roadName || '', r.address || '',
+        (r.signals||[]).join('; '), (r.notes||'').replace(/,/g,';'),
+        `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${r.lat},${r.lng}&heading=${r.heading}`,
+        `https://www.google.com/maps?q=${r.lat},${r.lng}`
+      ]);
+    });
+    const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scanline_distress_results.csv';
+    a.click();
+  };
+
+  /* ---------------- UI PLUMBING ---------------- */
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-setup').style.display = btn.dataset.tab === 'setup' ? 'block' : 'none';
+      document.getElementById('tab-results').style.display = btn.dataset.tab === 'results' ? 'block' : 'none';
+    };
+  });
+
+  const spacing = document.getElementById('spacing');
+  spacing.oninput = () => document.getElementById('spacingVal').textContent = spacing.value + 'm';
+  const maxPts = document.getElementById('maxPts');
+  maxPts.oninput = () => document.getElementById('maxPtsVal').textContent = maxPts.value;
+  const thresh = document.getElementById('threshold');
+  thresh.oninput = () => document.getElementById('threshVal').textContent = thresh.value;
+
+  [spacing, maxPts, document.getElementById('cameraSide')].forEach(el => {
+    el.addEventListener('change', () => { if (currentPolygon) buildScanPoints(); });
+  });
+
+  function setStatus(mode, text) {
+    const pill = document.getElementById('statusPill');
+    pill.className = 'status-pill' + (mode === 'live' ? ' live' : mode === 'warn' ? ' warn' : '');
+    document.getElementById('statusText').textContent = text;
+  }
+  function setScanMsg(msg) { document.getElementById('scanStatusMsg').textContent = msg; }
+
+  function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2600);
+  }
+
+  /* ---------------- LOCATION SEARCH ---------------- */
+  const locInput = document.getElementById('locSearchInput');
+  const locResultsEl = document.getElementById('locResults');
+  let locDebounce = null;
+  let locResults = [];
+  let locActiveIndex = -1;
+
+  locInput.addEventListener('input', () => {
+    const q = locInput.value.trim();
+    clearTimeout(locDebounce);
+    if (q.length < 3) { hideLocResults(); return; }
+    locDebounce = setTimeout(() => searchLocation(q), 350);
+  });
+
+  locInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (locActiveIndex >= 0 && locResults[locActiveIndex]) {
+        selectLocation(locResults[locActiveIndex]);
+      } else if (locResults[0]) {
+        selectLocation(locResults[0]);
+      } else {
+        const q = locInput.value.trim();
+        if (q.length >= 3) searchLocation(q);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      locActiveIndex = Math.min(locActiveIndex + 1, locResults.length - 1);
+      highlightLocResults();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      locActiveIndex = Math.max(locActiveIndex - 1, 0);
+      highlightLocResults();
+    } else if (e.key === 'Escape') {
+      hideLocResults();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('locationSearch').contains(e.target)) hideLocResults();
+  });
+
+  async function searchLocation(q) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      locResults = data || [];
+      locActiveIndex = -1;
+      renderLocResults();
+    } catch (e) {
+      console.warn('Location search failed', e);
+    }
+  }
+
+  function renderLocResults() {
+    if (!locResults.length) { hideLocResults(); return; }
+    locResultsEl.innerHTML = locResults.map((r, i) => `
+      <div class="loc-result-item" data-idx="${i}">
+        ${r.display_name.split(',')[0]}
+        <div class="sub">${r.display_name}</div>
+      </div>
+    `).join('');
+    locResultsEl.classList.add('show');
+    locResultsEl.querySelectorAll('.loc-result-item').forEach(el => {
+      el.onclick = () => selectLocation(locResults[parseInt(el.dataset.idx, 10)]);
+    });
+  }
+
+  function highlightLocResults() {
+    locResultsEl.querySelectorAll('.loc-result-item').forEach((el, i) => {
+      el.style.background = i === locActiveIndex ? 'rgba(255,138,61,.1)' : '';
+    });
+  }
+
+  function selectLocation(r) {
+    const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+    let zoom = 15;
+    if (r.type === 'city' || r.type === 'administrative') zoom = 12;
+    if (r.class === 'place' && (r.type === 'county' || r.type === 'state')) zoom = 9;
+    map.setView([lat, lon], zoom);
+    locInput.value = r.display_name.split(',')[0];
+    hideLocResults();
+  }
+
+  function hideLocResults() {
+    locResultsEl.classList.remove('show');
+    locResultsEl.innerHTML = '';
+    locResults = [];
+    locActiveIndex = -1;
+  }
+
+  document.querySelectorAll('.key-toggle').forEach(btn => {
+    btn.onclick = () => {
+      const input = document.getElementById(btn.dataset.target);
+      const revealed = input.classList.toggle('revealed');
+      btn.textContent = revealed ? 'Hide' : 'Show';
+    };
+    btn.textContent = 'Show';
+  });
+
+  document.getElementById('helpBtn').onclick = () => {
+    toast('Draw a polygon → add your Google Maps key → Start Scan. Flagged addresses auto-lookup after.');
+  };
+
+})();
+</script>
+</body>
+</html>

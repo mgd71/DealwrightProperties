@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scout — Deal Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#060911;
+    --panel:#0D1424;
+    --panel-2:#111a2e;
+    --line: rgba(124,92,255,0.16);
+    --line-bright: rgba(124,92,255,0.4);
+    --violet:#7C5CFF;
+    --violet-dim: rgba(124,92,255,0.12);
+    --cyan:#38BDF8;
+    --money:#34D399;
+    --money-dim: rgba(52,211,153,0.12);
+    --danger:#F87171;
+    --danger-dim: rgba(248,113,113,0.12);
+    --amber:#FBBF24;
+    --text:#E8EAF2;
+    --text-dim:#8891A8;
+    --text-faint:#525a72;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(124,92,255,0.13), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(56,189,248,0.08), transparent 55%),
+      var(--void);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    padding: 40px 20px 80px;
+  }
+  .wrap{max-width:880px;margin:0 auto;}
+
+  /* ---------- Header / signature hex ---------- */
+  .header{display:flex;align-items:center;gap:22px;margin-bottom:36px;}
+  .hexwrap{position:relative;width:74px;height:74px;flex:none;}
+  .hex{width:100%;height:100%;clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0% 50%);
+    background:linear-gradient(155deg,#131c33,#0a0f1c);
+    border:1px solid var(--line-bright);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 1px rgba(124,92,255,0.08), 0 0 30px -4px rgba(124,92,255,0.55);
+  }
+  .hex svg{width:34px;height:34px;stroke:var(--cyan);}
+  .hex.scanning{animation:pulseHex 1.4s ease-in-out infinite;}
+  @keyframes pulseHex{
+    0%,100%{box-shadow:0 0 0 1px rgba(124,92,255,0.08), 0 0 30px -4px rgba(124,92,255,0.55);}
+    50%{box-shadow:0 0 0 1px rgba(56,189,248,0.25), 0 0 46px 2px rgba(56,189,248,0.65);}
+  }
+  .htitle{display:flex;flex-direction:column;gap:5px;}
+  .htitle h1{margin:0;font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:0.5px;}
+  .htitle .sub{color:var(--violet);font-size:13px;font-weight:500;letter-spacing:0.3px;}
+  .status-pill{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:1px;
+    color:var(--text-dim);border:1px solid var(--line);padding:6px 12px;border-radius:20px;background:rgba(255,255,255,0.015);
+    text-transform:uppercase;font-family:'JetBrains Mono',monospace;}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--text-faint);}
+  .status-pill.live .dot{background:var(--money);box-shadow:0 0 8px var(--money);}
+  .status-pill.busy .dot{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:0.25;}}
+
+  /* ---------- Panels ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px;margin-bottom:20px;}
+  .panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--text-faint);
+    text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+  .panel-label::after{content:'';flex:1;height:1px;background:var(--line);}
+
+  /* ---------- Form ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid.full{grid-template-columns:1fr;}
+  .field{display:flex;flex-direction:column;gap:7px;}
+  .field.span2{grid-column:1/-1;}
+  label{font-size:12px;color:var(--text-dim);font-weight:500;}
+  label .opt{color:var(--text-faint);font-weight:400;}
+  input, select{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:11px 13px;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;
+    outline:none;transition:border-color .15s, box-shadow .15s;
+  }
+  input::placeholder{color:var(--text-faint);}
+  input:focus, select:focus{border-color:var(--violet);box-shadow:0 0 0 3px var(--violet-dim);}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238891A8'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;}
+
+  .keyrow{display:flex;gap:10px;align-items:center;}
+  .keyrow input{flex:1;font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .key-status{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-faint);white-space:nowrap;}
+  .key-status.ok{color:var(--money);}
+
+  .runbtn{
+    width:100%;margin-top:22px;padding:15px;border-radius:10px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--violet),#5B3FE0);color:#fff;font-family:'Space Grotesk',sans-serif;
+    font-size:15px;font-weight:600;letter-spacing:0.4px;display:flex;align-items:center;justify-content:center;gap:10px;
+    box-shadow:0 8px 24px -8px rgba(124,92,255,0.6);transition:transform .12s, box-shadow .12s;
+  }
+  .runbtn:hover{transform:translateY(-1px);box-shadow:0 10px 28px -6px rgba(124,92,255,0.75);}
+  .runbtn:active{transform:translateY(0);}
+  .runbtn:disabled{opacity:0.55;cursor:not-allowed;transform:none;}
+  .runbtn .spin{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);border-top-color:#fff;
+    animation:spin .7s linear infinite;display:none;}
+  .runbtn.loading .spin{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .errbox{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--danger-dim);border:1px solid rgba(248,113,113,0.35);
+    color:#FFB4B4;font-size:13px;display:none;}
+
+  /* ---------- Scan progress ---------- */
+  .scanlog{display:none;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;line-height:1.9;}
+  .scanlog .line{color:var(--text-dim);}
+  .scanlog .line.active{color:var(--cyan);}
+  .scanlog .line.active::before{content:'▸ ';}
+  .scanlog .line.done{color:var(--money);}
+  .scanlog .line.done::before{content:'✓ ';}
+
+  /* ---------- Results ---------- */
+  #results{display:none;}
+  .verdict{display:flex;align-items:center;gap:18px;padding:22px 26px;border-radius:14px;margin-bottom:20px;
+    border:1px solid var(--line);position:relative;overflow:hidden;}
+  .verdict.buy{background:linear-gradient(120deg, var(--money-dim), transparent 60%), var(--panel);border-color:rgba(52,211,153,0.35);}
+  .verdict.look{background:linear-gradient(120deg, rgba(251,191,36,0.10), transparent 60%), var(--panel);border-color:rgba(251,191,36,0.3);}
+  .verdict.pass{background:linear-gradient(120deg, var(--danger-dim), transparent 60%), var(--panel);border-color:rgba(248,113,113,0.3);}
+  .vbadge{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;
+    padding:8px 14px;border-radius:8px;flex:none;}
+  .verdict.buy .vbadge{background:var(--money);color:#052e1c;}
+  .verdict.look .vbadge{background:var(--amber);color:#3a2a00;}
+  .verdict.pass .vbadge{background:var(--danger);color:#3a0a0a;}
+  .vtext{font-size:14px;color:var(--text);line-height:1.5;}
+  .vtext b{color:inherit;}
+
+  .numgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .numcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;}
+  .numcard .nk{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
+  .numcard .nv{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--text);}
+  .numcard.money .nv{color:var(--money);}
+  .numcard.violet .nv{color:var(--violet);}
+  .numcard .ns{font-size:11px;color:var(--text-faint);margin-top:6px;}
+
+  .subjectrow{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  .subjectrow .addr{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;}
+  .subjectrow .meta{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.8px;text-transform:uppercase;
+    color:var(--text-faint);font-weight:500;padding:0 10px 10px;border-bottom:1px solid var(--line);}
+  td{padding:11px 10px;border-bottom:1px solid rgba(124,92,255,0.08);color:var(--text-dim);}
+  td.addr{color:var(--text);}
+  td.num{font-family:'JetBrains Mono',monospace;color:var(--text);}
+  tr:last-child td{border-bottom:none;}
+  .flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--amber);background:rgba(251,191,36,0.09);
+    border:1px solid rgba(251,191,36,0.25);padding:8px 12px;border-radius:8px;margin-top:14px;}
+  .flag.bad{color:#FFB4B4;background:var(--danger-dim);border-color:rgba(248,113,113,0.3);}
+
+  .mathblock{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text-dim);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:8px;padding:14px 16px;line-height:2;margin-top:14px;}
+  .mathblock .hl{color:var(--text);}
+  .mathblock .res{color:var(--money);font-weight:700;}
+
+  .notes{font-size:13px;color:var(--text-dim);line-height:1.6;margin-top:14px;}
+
+  .footer-note{text-align:center;color:var(--text-faint);font-size:11.5px;margin-top:28px;font-family:'JetBrains Mono',monospace;}
+
+  @media(max-width:640px){
+    .grid{grid-template-columns:1fr;}
+    .numgrid{grid-template-columns:1fr;}
+    .header{flex-wrap:wrap;}
+    .status-pill{margin-left:0;}
+    table{font-size:12px;}
+    th:nth-child(4), td:nth-child(4){display:none;}
+  }
+
+  @media(prefers-reduced-motion: reduce){
+    .hex.scanning{animation:none;}
+    .status-pill.busy .dot{animation:none;}
+    .runbtn .spin{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="hexwrap">
+      <div class="hex" id="hex">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.2" y2="16.2"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="htitle">
+      <h1>SCOUT</h1>
+      <div class="sub">Deal Analyzer — Comps, ARV &amp; MAO</div>
+    </div>
+    <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">idle</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Subject Property</div>
+    <div class="grid">
+      <div class="field span2">
+        <label>Address or listing link <span class="opt">(Zillow / Redfin / bare address)</span></label>
+        <input type="text" id="address" placeholder="e.g. 449 Hamilton E Holmes Dr NW, Atlanta, GA">
+      </div>
+      <div class="field">
+        <label>Living area (sqft) <span class="opt">— leave blank to auto-detect</span></label>
+        <input type="number" id="sqft" placeholder="e.g. 1450">
+      </div>
+      <div class="field">
+        <label>Property type</label>
+        <select id="ptype">
+          <option value="">Auto-detect</option>
+          <option value="SFH">Single-family</option>
+          <option value="Duplex">Duplex</option>
+          <option value="Condo">Condo</option>
+          <option value="Multi">Multifamily (3+ units)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Deal Inputs</div>
+    <div class="grid">
+      <div class="field">
+        <label>Repair estimate ($)</label>
+        <input type="number" id="repairs" placeholder="e.g. 25000">
+      </div>
+      <div class="field">
+        <label>Target investor margin <span class="opt">(% of ARV, 65–75% typical)</span></label>
+        <input type="number" id="margin" placeholder="e.g. 70" value="70">
+      </div>
+      <div class="field span2">
+        <label>Wholesale / assignment fee ($)</label>
+        <input type="number" id="fee" placeholder="e.g. 10000">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Anthropic API Key</div>
+    <div class="keyrow">
+      <input type="password" id="apiKey" placeholder="sk-ant-...">
+      <span class="key-status" id="keyStatus">not set</span>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-faint);margin-top:8px;line-height:1.5;">
+      Used client-side only to call the Anthropic API with web search enabled — never stored or sent anywhere else. Re-enter each session.
+    </div>
+
+    <button class="runbtn" id="runBtn">
+      <span class="spin"></span>
+      <span id="runLabel">Run Scan</span>
+    </button>
+
+    <div class="scanlog" id="scanlog">
+      <div class="line" id="s1">Reading subject property</div>
+      <div class="line" id="s2">Searching sold comparables</div>
+      <div class="line" id="s3">Filtering by sqft, distance &amp; sale date</div>
+      <div class="line" id="s4">Calculating ARV &amp; MAO</div>
+    </div>
+
+    <div class="errbox" id="errbox"></div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="footer-note">SCOUT · DEALWRIGHT DEAL INTELLIGENCE</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const apiKeyInput = $('apiKey');
+const keyStatus = $('keyStatus');
+const hex = $('hex');
+const statusPill = $('statusPill');
+const statusText = $('statusText');
+const runBtn = $('runBtn');
+const runLabel = $('runLabel');
+const scanlog = $('scanlog');
+const errbox = $('errbox');
+const resultsEl = $('results');
+
+apiKeyInput.addEventListener('input', () => {
+  const v = apiKeyInput.value.trim();
+  keyStatus.textContent = v.length > 8 ? 'key set' : 'not set';
+  keyStatus.classList.toggle('ok', v.length > 8);
+});
+
+function setBusy(isBusy){
+  hex.classList.toggle('scanning', isBusy);
+  statusPill.classList.toggle('busy', isBusy);
+  statusPill.classList.toggle('live', !isBusy && resultsEl.style.display === 'block');
+  statusText.textContent = isBusy ? 'scanning' : (resultsEl.style.display === 'block' ? 'complete' : 'idle');
+  runBtn.disabled = isBusy;
+  runBtn.classList.toggle('loading', isBusy);
+  runLabel.textContent = isBusy ? 'Scanning…' : 'Run Scan';
+}
+
+function stepScan(n){
+  scanlog.style.display = 'block';
+  for(let i=1;i<=4;i++){
+    const el = $('s'+i);
+    el.classList.remove('active','done');
+    if(i < n) el.classList.add('done');
+    if(i === n) el.classList.add('active');
+  }
+}
+
+function fmt$(n){
+  n = Math.round(Number(n)||0);
+  return '$' + n.toLocaleString('en-US');
+}
+
+function buildPrompt(inputs){
+  return `You are a real-estate wholesaling comps analyst. Follow this exact methodology and today's date context to research and calculate a deal analysis for the subject property below. Use web search to find REAL, currently-findable sold comparable listings — do not fabricate addresses or prices.
+
+SUBJECT INPUT:
+Address / link: ${inputs.address}
+Living area sqft (if given): ${inputs.sqft || 'not given — determine from research'}
+Property type (if given): ${inputs.ptype || 'not given — determine from research'}
+
+METHOD:
+1. Identify the subject property's full address, sqft, beds/baths, property type, and current listing price if it is currently listed. If sqft cannot be confirmed, make a reasonable estimate from comparable homes in the immediate area and note it was estimated.
+2. Find 5 SOLD comparable listings (closed sales only, not active/pending) near the subject:
+   - Sold within the last 6 months of today.
+   - Square footage within ±300 sqft of subject.
+   - Same property type as subject.
+   - Within 0.5 miles of subject if possible; widen to 1 mile, then 2 miles (never further) only if fewer than 5 qualify. Note if you had to widen.
+3. For each comp compute price per sqft = sold price / comp sqft.
+4. ARV = average(comp $/sqft across the 5 comps) × subject sqft.
+5. Repairs = ${inputs.repairs}, target investor margin = ${inputs.margin}% of ARV, wholesale fee = ${inputs.fee}.
+   MAO = (ARV × margin%) − Repairs − Wholesale Fee.
+6. Flag if most comps sold BELOW the subject's current listing price (if a listing price exists) — this signals weak ARV upside.
+
+Respond with ONLY a single valid JSON object, no markdown fences, no preamble, matching exactly this shape:
+{
+  "subject": {"address": string, "sqft": number, "beds": number|null, "baths": number|null, "type": string, "listing_price": number|null, "sqft_estimated": boolean},
+  "comps": [ {"address": string, "sold_price": number, "sold_date": string, "sqft": number, "price_per_sqft": number, "distance_mi": number} ],
+  "radius_used_mi": number,
+  "radius_widened": boolean,
+  "avg_price_per_sqft": number,
+  "arv": number,
+  "repairs": number,
+  "margin_pct": number,
+  "wholesale_fee": number,
+  "mao": number,
+  "listing_price_flag": boolean,
+  "notes": string
+}
+If fewer than 5 qualifying comps exist even after widening to 2 miles, return as many as you found and explain in "notes". All numbers must be plain numbers, no currency symbols or commas.`;
+}
+
+async function callClaude(prompt, key){
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if(!resp.ok){
+    const errText = await resp.text().catch(()=> '');
+    throw new Error('API error ' + resp.status + ': ' + errText.slice(0,300));
+  }
+  const data = await resp.json();
+  const textBlocks = (data.content||[]).filter(b => b.type === 'text').map(b => b.text);
+  const raw = textBlocks.join('\n').trim();
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  const jsonStart = cleaned.indexOf('{');
+  if(jsonStart === -1) throw new Error('Could not find JSON in model response.');
+
+  // Walk forward from the first '{' counting brace depth, respecting string
+  // literals/escapes, to find the matching closing brace — rather than assuming
+  // the LAST '}' in the whole reply belongs to our object (trailing commentary
+  // from the model can contain its own braces and break that assumption).
+  let depth = 0, inString = false, escaped = false, jsonEnd = -1;
+  for(let i = jsonStart; i < cleaned.length; i++){
+    const ch = cleaned[i];
+    if(inString){
+      if(escaped) escaped = false;
+      else if(ch === '\\') escaped = true;
+      else if(ch === '"') inString = false;
+      continue;
+    }
+    if(ch === '"'){ inString = true; continue; }
+    if(ch === '{') depth++;
+    else if(ch === '}'){
+      depth--;
+      if(depth === 0){ jsonEnd = i; break; }
+    }
+  }
+  if(jsonEnd === -1) throw new Error('Could not find a matching closing brace in model response.');
+
+  const candidate = sanitizeJsonStrings(cleaned.slice(jsonStart, jsonEnd+1));
+  try{
+    return JSON.parse(candidate);
+  } catch(e){
+    throw new Error('Model returned malformed JSON: ' + e.message);
+  }
+}
+
+// Models occasionally emit a raw newline/tab inside a JSON string value instead
+// of an escaped \n — technically invalid JSON that JSON.parse rejects outright.
+// Walk the string tracking whether we're inside a "..." span and escape any
+// raw control characters we find there before parsing.
+function sanitizeJsonStrings(str){
+  let out = '', inString = false, escaped = false;
+  for(let i = 0; i < str.length; i++){
+    const ch = str[i];
+    if(inString){
+      if(escaped){ out += ch; escaped = false; continue; }
+      if(ch === '\\'){ out += ch; escaped = true; continue; }
+      if(ch === '"'){ inString = false; out += ch; continue; }
+      if(ch === '\n'){ out += '\\n'; continue; }
+      if(ch === '\r'){ out += '\\r'; continue; }
+      if(ch === '\t'){ out += '\\t'; continue; }
+      out += ch;
+      continue;
+    }
+    if(ch === '"'){ inString = true; out += ch; continue; }
+    out += ch;
+  }
+  return out;
+}
+
+function renderResults(d, inputs){
+  const listingFlagged = !!d.listing_price_flag;
+  const listingPrice = d.subject.listing_price;
+  let verdictClass = 'look', verdictLabel = 'Worth a look', verdictText = '';
+
+  let spread = null;
+  if(listingPrice){
+    spread = d.mao - listingPrice;
+    if(spread > 5000 && !listingFlagged){
+      verdictClass = 'buy'; verdictLabel = 'Room to negotiate';
+      verdictText = `MAO clears the current listing price by <b>${fmt$(spread)}</b> — there's room to negotiate toward MAO.`;
+    } else if(spread >= 0){
+      verdictClass = 'look'; verdictLabel = 'Worth a look';
+      verdictText = `MAO is close to the listing price (<b>${fmt$(spread)}</b> of room). Tight, but worth a call to the seller.`;
+    } else {
+      verdictClass = 'pass'; verdictLabel = 'Pass — too thin';
+      verdictText = `Listing price is <b>${fmt$(Math.abs(spread))} over</b> MAO. Would need a meaningful price reduction to work.`;
+    }
+  } else {
+    verdictText = `No listing price found to compare against — use the MAO below as your ceiling when making an offer.`;
+  }
+  if(listingFlagged){
+    verdictText += ` Most comps sold at or below the listing price — ARV upside looks weak, confirm before offering.`;
+  }
+
+  const compRows = (d.comps||[]).map(c => `
+    <tr>
+      <td class="addr">${c.address||'—'}</td>
+      <td class="num">${fmt$(c.sold_price)}</td>
+      <td class="num">${c.sold_date||'—'}</td>
+      <td class="num">${c.sqft ? c.sqft.toLocaleString() : '—'} sf</td>
+      <td class="num">$${c.price_per_sqft ? Number(c.price_per_sqft).toFixed(0) : '—'}/sf</td>
+    </tr>`).join('');
+
+  resultsEl.innerHTML = `
+    <div class="verdict ${verdictClass}">
+      <div class="vbadge">${verdictLabel}</div>
+      <div class="vtext">${verdictText}</div>
+    </div>
+
+    <div class="numgrid">
+      <div class="numcard money">
+        <div class="nk">ARV</div>
+        <div class="nv">${fmt$(d.arv)}</div>
+        <div class="ns">avg $${Number(d.avg_price_per_sqft).toFixed(0)}/sf × ${d.subject.sqft?.toLocaleString()||'—'} sf</div>
+      </div>
+      <div class="numcard violet">
+        <div class="nk">MAO</div>
+        <div class="nv">${fmt$(d.mao)}</div>
+        <div class="ns">max offer, ${d.margin_pct}% margin</div>
+      </div>
+      <div class="numcard">
+        <div class="nk">Listing Price</div>
+        <div class="nv">${listingPrice ? fmt$(listingPrice) : '—'}</div>
+        <div class="ns">${listingPrice ? (spread>=0?'below MAO':'above MAO') : 'not currently listed'}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Subject</div>
+      <div class="subjectrow">
+        <div class="addr">${d.subject.address}</div>
+        <div class="meta">${d.subject.type||''} · ${d.subject.sqft?.toLocaleString()||'—'} sf${d.subject.beds?` · ${d.subject.beds} bd`:''}${d.subject.baths?`/${d.subject.baths} ba`:''}${d.subject.sqft_estimated?' · sqft estimated':''}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Comparable Sales${d.radius_widened?` — widened to ${d.radius_used_mi} mi`:''}</div>
+      <table>
+        <thead><tr><th>Address</th><th>Sold</th><th>Date</th><th>Sqft</th><th>$/sf</th></tr></thead>
+        <tbody>${compRows || '<tr><td colspan="5" style="color:var(--text-faint)">No comps returned.</td></tr>'}</tbody>
+      </table>
+      ${listingFlagged ? `<div class="flag bad">Comps mostly sold at/below listing price — weak ARV upside signal.</div>` : ''}
+
+      <div class="mathblock">
+ARV &nbsp;=&nbsp; avg($/sf) × subject sqft<br>
+&nbsp;&nbsp;&nbsp;=&nbsp; <span class="hl">$${Number(d.avg_price_per_sqft).toFixed(0)}/sf</span> × <span class="hl">${d.subject.sqft?.toLocaleString()}</span><br>
+&nbsp;&nbsp;&nbsp;=&nbsp; <span class="res">${fmt$(d.arv)}</span>
+<br><br>
+MAO &nbsp;=&nbsp; (ARV × margin%) − Repairs − Fee<br>
+&nbsp;&nbsp;&nbsp;=&nbsp; (${fmt$(d.arv)} × ${d.margin_pct}%) − ${fmt$(d.repairs)} − ${fmt$(d.wholesale_fee)}<br>
+&nbsp;&nbsp;&nbsp;=&nbsp; <span class="res">${fmt$(d.mao)}</span>
+      </div>
+    </div>
+
+    ${d.notes ? `<div class="panel"><div class="panel-label">Notes</div><div class="notes">${d.notes}</div></div>` : ''}
+  `;
+  resultsEl.style.display = 'block';
+}
+
+runBtn.addEventListener('click', async () => {
+  errbox.style.display = 'none';
+  resultsEl.style.display = 'none';
+
+  const key = apiKeyInput.value.trim();
+  const address = $('address').value.trim();
+  const sqft = $('sqft').value.trim();
+  const ptype = $('ptype').value;
+  const repairs = $('repairs').value.trim();
+  const margin = $('margin').value.trim() || '70';
+  const fee = $('fee').value.trim();
+
+  if(!key){ errbox.textContent = 'Enter your Anthropic API key first.'; errbox.style.display='block'; return; }
+  if(!address){ errbox.textContent = 'Enter a subject address or listing link.'; errbox.style.display='block'; return; }
+  if(repairs === '' || fee === ''){ errbox.textContent = 'Repair estimate and wholesale fee are required to calculate MAO.'; errbox.style.display='block'; return; }
+
+  setBusy(true);
+  stepScan(1);
+  const t1 = setTimeout(()=>stepScan(2), 1600);
+  const t2 = setTimeout(()=>stepScan(3), 5000);
+  const t3 = setTimeout(()=>stepScan(4), 9000);
+
+  try{
+    const prompt = buildPrompt({address, sqft, ptype, repairs, margin, fee});
+    const data = await callClaude(prompt, key);
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+    stepScan(5);
+    renderResults(data, {address, sqft, ptype, repairs, margin, fee});
+  } catch(err){
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+    errbox.textContent = 'Scan failed: ' + err.message;
+    errbox.style.display = 'block';
+  } finally {
+    setBusy(false);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dealwright — Field Tools</title>
+<meta name="description" content="Scanline, Scout, and Deal Board — the internal toolkit for Dealwright wholesale acquisitions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1526;
+    --ink-2:#151E36;
+    --ink-3:#1B2544;
+    --line:#2B3757;
+    --line-soft:#202B49;
+    --text:#E7E9F0;
+    --text-dim:#8D97B3;
+    --text-faint:#5C6685;
+    --brass:#C4924C;
+    --brass-bright:#E3B268;
+    --max:1180px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  a{color:inherit;}
+
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 32px;}
+
+  /* ---------- header ---------- */
+  header.site{
+    position:relative;
+    z-index:5;
+    padding:28px 0 0;
+  }
+  header.site .wrap{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  .brand{
+    font-family:'Fraunces', serif;
+    font-size:1.05rem;
+    font-weight:600;
+    letter-spacing:0.01em;
+  }
+  .brand span{color:var(--brass);}
+  .brand-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--text-faint);
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;
+    padding:96px 0 80px;
+    overflow:hidden;
+  }
+  .hero-grid{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    opacity:0.55;
+  }
+  .hero-inner{
+    position:relative;
+    z-index:2;
+    max-width:760px;
+  }
+  .hero h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(2.4rem, 5vw, 3.75rem);
+    line-height:1.08;
+    letter-spacing:-0.01em;
+    margin:0 0 26px;
+    opacity:0;
+    animation:riseIn 0.9s 0.15s cubic-bezier(.22,.68,.28,1) forwards;
+  }
+  .hero p.lede{
+    font-size:1.08rem;
+    color:var(--text-dim);
+    max-width:56ch;
+    margin:0 0 34px;
+    opacity:0;
+    animation:riseIn 0.9s 0.32s cubic-bezier(.22,.68,.28,1) forwards;
+  }
+  .flow-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.86rem;
+    color:var(--brass-bright);
+    opacity:0;
+    animation:riseIn 0.9s 0.48s cubic-bezier(.22,.68,.28,1) forwards;
+  }
+  .flow-line .sep{color:var(--text-faint);}
+
+  @keyframes riseIn{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  .parcel-outline{
+    position:absolute;
+    inset:18px;
+    z-index:1;
+    pointer-events:none;
+  }
+  .parcel-outline rect{
+    fill:none;
+    stroke:var(--brass);
+    stroke-width:1;
+    stroke-dasharray:8 7;
+    stroke-dashoffset:1600;
+    opacity:0.6;
+    animation:drawParcel 2.6s 0.3s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes drawParcel{
+    to{stroke-dashoffset:0;}
+  }
+
+  /* ---------- pipeline divider ---------- */
+  .pipeline-divider{
+    position:relative;
+    height:1px;
+    background:var(--line);
+    margin:0 0 4px;
+  }
+
+  /* ---------- panels ---------- */
+  .panels{
+    padding:0 0 100px;
+  }
+  .panels .wrap{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .panel{
+    position:relative;
+    background:var(--ink);
+    padding:44px 34px 36px;
+    display:flex;
+    flex-direction:column;
+    min-height:380px;
+    transition:background 0.35s ease;
+  }
+  .panel:hover{
+    background:var(--ink-2);
+  }
+  .panel .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem;
+    color:var(--brass);
+    letter-spacing:0.02em;
+  }
+  .panel .stage{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--text-faint);
+    margin-top:4px;
+  }
+  .panel h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.6rem;
+    margin:26px 0 4px;
+    line-height:1.15;
+  }
+  .panel .tagline{
+    font-size:0.85rem;
+    color:var(--text-faint);
+    margin:0 0 18px;
+    font-style:italic;
+    font-family:'Fraunces', serif;
+  }
+  .panel p.desc{
+    color:var(--text-dim);
+    font-size:0.96rem;
+    margin:0;
+    flex-grow:1;
+  }
+  .panel .open-link{
+    margin-top:28px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:500;
+    font-size:0.92rem;
+    text-decoration:none;
+    color:var(--text);
+    width:fit-content;
+    padding-bottom:3px;
+    border-bottom:1px solid var(--line);
+    transition:border-color 0.25s ease, color 0.25s ease;
+  }
+  .panel .open-link:hover{
+    color:var(--brass-bright);
+    border-color:var(--brass-bright);
+  }
+
+  /* corner brackets */
+  .panel::before, .panel::after{
+    content:"";
+    position:absolute;
+    width:14px;
+    height:14px;
+    border-color:var(--line-soft);
+    border-style:solid;
+    border-width:0;
+    opacity:0;
+    transition:opacity 0.3s ease, border-color 0.3s ease;
+  }
+  .panel::before{
+    top:14px; left:14px;
+    border-top-width:1px;
+    border-left-width:1px;
+  }
+  .panel::after{
+    bottom:14px; right:14px;
+    border-bottom-width:1px;
+    border-right-width:1px;
+  }
+  .panel:hover::before, .panel:hover::after{
+    opacity:1;
+    border-color:var(--brass);
+  }
+
+  /* ---------- footer ---------- */
+  footer.site{
+    border-top:1px solid var(--line);
+    padding:30px 0 40px;
+  }
+  footer.site .wrap{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  footer.site p{
+    margin:0;
+    font-size:0.82rem;
+    color:var(--text-faint);
+    font-family:'IBM Plex Mono', monospace;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 880px){
+    .panels .wrap{grid-template-columns:1fr;}
+    .panel{min-height:0;}
+  }
+  @media (max-width: 560px){
+    .wrap{padding:0 20px;}
+    .hero{padding:64px 0 56px;}
+  }
+
+  a:focus-visible, .open-link:focus-visible{
+    outline:2px solid var(--brass-bright);
+    outline-offset:3px;
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand">Dealwright <span>/</span> Field Tools</div>
+    <div class="brand-sub">acquisitions toolkit</div>
+  </div>
+</header>
+
+<section class="hero">
+  <svg class="hero-grid" viewBox="0 0 1180 520" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <pattern id="grid" width="58" height="58" patternUnits="userSpaceOnUse">
+        <path d="M 58 0 L 0 0 0 58" fill="none" stroke="#1E2947" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="1180" height="520" fill="url(#grid)"/>
+  </svg>
+  <svg class="parcel-outline" viewBox="0 0 1180 460" preserveAspectRatio="none" aria-hidden="true">
+    <rect x="1" y="1" width="1178" height="458"/>
+  </svg>
+  <div class="wrap">
+    <div class="hero-inner">
+      <h1>From street&#8209;level signal to closed deal.</h1>
+      <p class="lede">Three tools built for Dealwright wholesale acquisitions, chained together into one pipeline: find distressed properties, run the numbers, and carry them through to close.</p>
+      <div class="flow-line">
+        <span>Scan</span><span class="sep">&rarr;</span><span>Analyze</span><span class="sep">&rarr;</span><span>Track</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="pipeline-divider"></div>
+
+<section class="panels">
+  <div class="wrap">
+
+    <article class="panel">
+      <div class="num">01</div>
+      <div class="stage">scan</div>
+      <h2>Scanline</h2>
+      <p class="tagline">Distressed property scanner</p>
+      <p class="desc">Draw a search boundary on the map and Scanline drives every road inside it, capturing a street&#8209;view image at each address and scoring it for visible signs of distress &mdash; boarded windows, overgrown lots, deferred maintenance.</p>
+      <a class="open-link" href="scanline-distress-scanner.html">Open Scanline</a>
+    </article>
+
+    <article class="panel">
+      <div class="num">02</div>
+      <div class="stage">analyze</div>
+      <h2>Scout</h2>
+      <p class="tagline">Deal analyzer</p>
+      <p class="desc">Drop in an address and Scout pulls sold comparables, calculates ARV, and returns a maximum allowable offer &mdash; the numbers needed to make a call on a deal in minutes.</p>
+      <a class="open-link" href="scout.html">Open Scout</a>
+    </article>
+
+    <article class="panel">
+      <div class="num">03</div>
+      <div class="stage">track</div>
+      <h2>Deal Board</h2>
+      <p class="tagline">Wholesaling command center</p>
+      <p class="desc">Every property that clears the first two stages lands here: a kanban pipeline from lead to close, with the cash buyers list and deal comps kept in one place.</p>
+      <a class="open-link" href="deal-board.html">Open Deal Board</a>
+    </article>
+
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Dealwright Properties</p>
+    <p>Internal use</p>
+  </div>
+</footer>
+
+</body>
+</html>
