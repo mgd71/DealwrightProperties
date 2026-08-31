@@ -317,8 +317,50 @@ function fmt$(n){
   return '$' + n.toLocaleString('en-US');
 }
 
+// Trust but verify: the prompt tells the model the exact date window, but LLMs
+// can still mis-date a comp. Re-check every comp's sold_date against the real
+// window client-side and drop anything outside it, recalculating ARV/MAO off
+// the survivors so a bad date never silently skews the numbers.
+function enforceDateWindow(data){
+  const { today, cutoff } = dateWindow();
+  const original = data.comps || [];
+  const kept = [], dropped = [];
+  for(const c of original){
+    const d = c.sold_date ? new Date(c.sold_date) : null;
+    if(d && !isNaN(d) && d >= cutoff && d <= today){
+      kept.push(c);
+    } else {
+      dropped.push(c);
+    }
+  }
+  if(dropped.length){
+    data.comps = kept;
+    if(kept.length){
+      const avg = kept.reduce((s,c)=>s + Number(c.price_per_sqft||0), 0) / kept.length;
+      data.avg_price_per_sqft = avg;
+      data.arv = avg * Number(data.subject?.sqft || 0);
+      data.mao = (data.arv * Number(data.margin_pct||0)/100) - Number(data.repairs||0) - Number(data.wholesale_fee||0);
+    }
+    const droppedAddrs = dropped.map(c => `${c.address||'unknown'} (${c.sold_date||'no date'})`).join('; ');
+    const droppedNote = `Dropped ${dropped.length} comp(s) outside the actual 6-month window and recalculated ARV/MAO from the remaining ${kept.length}: ${droppedAddrs}.`;
+    data.notes = data.notes ? `${data.notes} ${droppedNote}` : droppedNote;
+  }
+}
+
+function dateWindow(){
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setMonth(cutoff.getMonth() - 6);
+  const fmtDate = d => d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  return { today, cutoff, todayStr: fmtDate(today), cutoffStr: fmtDate(cutoff) };
+}
+
 function buildPrompt(inputs){
-  return `You are a real-estate wholesaling comps analyst. Follow this exact methodology and today's date context to research and calculate a deal analysis for the subject property below. Use web search to find REAL, currently-findable sold comparable listings — do not fabricate addresses or prices.
+  const { todayStr, cutoffStr } = dateWindow();
+
+  return `You are a real-estate wholesaling comps analyst. Use web search to find REAL, currently-findable sold comparable listings — do not fabricate addresses or prices.
+
+TODAY'S DATE IS: ${todayStr}. Do not rely on your own sense of the current date (your training cutoff is not today) — use the date given here for every recency check below.
 
 SUBJECT INPUT:
 Address / link: ${inputs.address}
@@ -328,7 +370,7 @@ Property type (if given): ${inputs.ptype || 'not given — determine from resear
 METHOD:
 1. Identify the subject property's full address, sqft, beds/baths, property type, and current listing price if it is currently listed. If sqft cannot be confirmed, make a reasonable estimate from comparable homes in the immediate area and note it was estimated.
 2. Find 5 SOLD comparable listings (closed sales only, not active/pending) near the subject:
-   - Sold within the last 6 months of today.
+   - Sold ON OR AFTER ${cutoffStr} (this is exactly 6 months before today, ${todayStr}). Reject any comp that sold before ${cutoffStr}, even if it looked recent in your training data — verify the actual sale date via search, don't assume.
    - Square footage within ±300 sqft of subject.
    - Same property type as subject.
    - Within 0.5 miles of subject if possible; widen to 1 mile, then 2 miles (never further) only if fewer than 5 qualify. Note if you had to widen.
@@ -353,7 +395,7 @@ Respond with ONLY a single valid JSON object, no markdown fences, no preamble, m
   "listing_price_flag": boolean,
   "notes": string
 }
-If fewer than 5 qualifying comps exist even after widening to 2 miles, return as many as you found and explain in "notes". All numbers must be plain numbers, no currency symbols or commas.`;
+Every comp's "sold_date" must fall between ${cutoffStr} and ${todayStr} inclusive. If fewer than 5 qualifying comps exist even after widening to 2 miles, return as many as you found and explain in "notes". All numbers must be plain numbers, no currency symbols or commas.`;
 }
 
 async function callClaude(prompt, key){
@@ -552,6 +594,7 @@ runBtn.addEventListener('click', async () => {
   try{
     const prompt = buildPrompt({address, sqft, ptype, repairs, margin, fee});
     const data = await callClaude(prompt, key);
+    enforceDateWindow(data);
     clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     stepScan(5);
     renderResults(data, {address, sqft, ptype, repairs, margin, fee});
